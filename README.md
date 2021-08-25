@@ -6,4 +6,4 @@ The correction is based on a NN classifier trained to discriminate two samples o
 
 The idea is based on [Approximating Likelihood Ratios with Calibrated Discriminative Classifiers](https://arxiv.org/abs/1506.02169).
 
-The data provided in the form of 3D images in HDF5 format, thus the current approach uses a 3D Convolution NN for images classification, similar to what is used within the computer vision domain. An initial model can be found in [models.py](https://github.com/ekourlit/torch-reweighter/blob/main/models.py).
+The data are provided in the form of 3D images in HDF5 format. The current approach uses a 3D Convolution NN for images classification, similar to what is used within the computer vision domain. An initial model can be found in [models.py](https://github.com/ekourlit/torch-reweighter/blob/main/models.py).
