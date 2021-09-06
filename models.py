@@ -2,6 +2,7 @@ import pdb
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+import sparseconvnet as scn
 import torch.nn.functional as F
 from torchmetrics.functional import accuracy, precision, recall, f1
 from typing import Tuple
@@ -99,3 +100,36 @@ class Conv3DModel(pl.LightningModule):
 
         return loss
 
+#################################################
+
+# sparce convolution example for classification
+class scnModel(pl.LightningModule):
+    def __init__(self):
+        super(scnModel, self).__init__()
+
+        self.num_classes = 1
+        self.sparseModel = scn.Sequential(
+
+          scn.SparseVggNet(3, 1, [ # second arg seems to be the equivalent of in_c of Conv3d
+            ['C', 8], ['C', 8], 'MP',
+            ['C', 16], ['C', 16], 'MP',
+            ['C', 16, 8], ['C', 16, 8], 'MP',
+            ['C', 24, 8], ['C', 24, 8], 'MP' ]),
+
+          scn.Convolution(3, 32, 64, 5, 1, False),
+
+          scn.BatchNormReLU(64),
+
+          scn.SparseToDense(3, 64) )
+
+        self.spatial_size= self.sparseModel.input_spatial_size(torch.LongTensor([1, 1, 1]))
+        self.inputLayer = scn.InputLayer(3, self.spatial_size, 2) # third arg is batch
+        self.linear = nn.Linear(64, self.num_classes)
+
+    def forward(self, x):
+        x = self.inputLayer(x)
+        x = self.sparseModel(x)
+        x = x.view(-1, 64)
+        x = self.linear(x)
+
+        return x
