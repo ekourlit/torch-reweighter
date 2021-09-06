@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import random_split, DataLoader, ConcatDataset
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from models import Conv3DModel
+from models import *
 from data import *
 
 #################################################
@@ -14,7 +14,7 @@ from data import *
 
 BATCH_SIZE = 32
 NUM_WORKERS = 8
-EPOCHS = 50
+EPOCHS = 3
 
 #################################################
 
@@ -33,10 +33,19 @@ instances = len(dataset_t)
 
 # split train/val/test
 # the rest will be validation
-train_ratio = 0.6
-test_ratio = 0.1
+train_ratio = 0.7
+test_ratio = 0.01
+train_instances = int(train_ratio*instances)
+val_instances = int((1-train_ratio-test_ratio)*instances)
+test_instances = int(test_ratio*instances)
+
+# check if the splitting has been done correctly
+if instances != train_instances+val_instances+test_instances:
+    delta = instances - (train_instances+val_instances+test_instances)
+    train_instances += delta
+
 ds_train, ds_val, ds_test = random_split(dataset_t,
-                                         [int(train_ratio*instances), int((1-train_ratio-test_ratio)*instances), int(test_ratio*instances)],
+                                         [train_instances, val_instances, test_instances],
                                          generator=torch.Generator().manual_seed(42))
 
 # get dataloaders
