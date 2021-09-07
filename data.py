@@ -1,7 +1,8 @@
 import numpy as np
 import h5py
 from torch.utils.data import TensorDataset
-from torch import Tensor
+from torch import FloatTensor
+import torchvision.transforms as transforms
 
 #################################################
 
@@ -26,10 +27,14 @@ def get_tensor_dataset(dataset: h5py._hl.group.Group, nominal: bool = False) -> 
         labels = np.zeros(energy.shape)
 
     # convert to tensors
-    layers_t = Tensor(layers)
-    labels_t = Tensor(labels)
+    layers_t = FloatTensor(layers)
+    labels_t = FloatTensor(labels)
 
     # create torch dataset
     dataset_t = TensorDataset(layers_t, labels_t)
+
+    # normalize to [-1, 1]
+    dataset_t.transform = transforms.Compose(
+        [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     return dataset_t
