@@ -1,6 +1,7 @@
 import pdb
 import argparse
 from matplotlib import pyplot as plt
+import random
 import numpy as np
 import torch
 from torch.utils.data import random_split, DataLoader, ConcatDataset
@@ -13,8 +14,22 @@ from data import *
 # configuration
 
 BATCH_SIZE = 32
-NUM_WORKERS = 8
-EPOCHS = 3
+NUM_WORKERS = 16
+EPOCHS = 200
+
+#################################################
+
+# set random seeds
+def fix_randomness(seed: int, deterministic: bool = False) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    if deterministic:
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True)
+
+fix_randomness(42)
 
 #################################################
 
@@ -45,8 +60,7 @@ if instances != train_instances+val_instances+test_instances:
     train_instances += delta
 
 ds_train, ds_val, ds_test = random_split(dataset_t,
-                                         [train_instances, val_instances, test_instances],
-                                         generator=torch.Generator().manual_seed(42))
+                                         [train_instances, val_instances, test_instances])
 
 # get dataloaders
 train_loader    = DataLoader(ds_train,
@@ -56,7 +70,7 @@ train_loader    = DataLoader(ds_train,
 
 val_loader      = DataLoader(ds_val,
                              batch_size=BATCH_SIZE,
-                             shuffle=True,
+                             shuffle=False,
                              num_workers=NUM_WORKERS)
 
 test_loader     = DataLoader(ds_test,
@@ -65,13 +79,21 @@ test_loader     = DataLoader(ds_test,
                              num_workers=NUM_WORKERS)
 
 #################################################
+'''
+# get some random training images
+dataiter = iter(train_loader)
+images, labels = dataiter.next()
+pdb.set_trace()
+'''
+#################################################
 
 # init model
-model = Conv3DModel(use_batchnorm=False,
+model = Conv3DModel(learning_rate=1e-4,
+                    use_batchnorm=False,
                     use_dropout=True)
 
 # log
-logger = TensorBoardLogger('logs/', 'test')
+logger = TensorBoardLogger('logs/', 'conv3d')
 
 # init a trainer
 trainer = pl.Trainer(gpus=1,
