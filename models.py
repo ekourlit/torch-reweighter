@@ -11,29 +11,41 @@ from typing import Tuple
 
 class Conv3DModel(pl.LightningModule):
     
-    def __init__(self, use_batchnorm: bool = False, use_dropout: bool = False) -> None:
+    def __init__(self, learning_rate: float, use_batchnorm: bool = False, use_dropout: bool = False) -> None:
         super(Conv3DModel, self).__init__()
         
         self.num_classes = 1
         self.class_one_threshold = 0.5
         self.use_dropout = use_dropout
+        self.dropout_prob_conv = 0.20
+        self.dropout_prob_linear = 0.50
         self.use_batchnorm = use_batchnorm
-
-        self.conv_layer1 = self.set_conv_block(1, 32)
-        self.conv_layer2 = self.set_conv_block(32, 64)
-        self.fc1 = nn.Linear(13824, 128) # I still don't know how to calculate the first argument number
-        self.fc2 = nn.Linear(128, self.num_classes)
+        self.learning_rate = learning_rate
+        
         self.relu = nn.LeakyReLU()
+        self.conv_layer1 = self.set_conv_block(1, 128)
+        self.conv_layer2 = self.set_conv_block(128, 128)
+        self.fc1 = nn.Linear(27648, 64) # I still don't know how to calculate the first argument number
+        self.fc2 = nn.Linear(64, 256)
+        self.fc3 = nn.Linear(256, 256)
+        self.fc4 = nn.Linear(256, self.num_classes)
         if self.use_batchnorm:
-            self.batch=nn.BatchNorm1d(128)
+            self.batch=nn.BatchNorm1d(self.num_hidden_linear_units)
         if self.use_dropout:
-            self.drop=nn.Dropout(p=0.25)
+            self.drop=nn.Dropout(p=self.dropout_prob_linear)
         
     def set_conv_block(self, in_c: int, out_c: int) -> torch.nn.Sequential:
-        conv_block = nn.Sequential(nn.Conv3d(in_c, out_c, kernel_size=3, stride=1, padding=0),
-                                   nn.LeakyReLU(),
-                                   nn.MaxPool3d(kernel_size=2))
-        
+        layers = []
+        layers.append(nn.Conv3d(in_c, out_c, kernel_size=3, stride=1, padding=0))
+        layers.append(self.relu)
+        if self.use_batchnorm:
+            layers.append(nn.BatchNorm3d(out_c))
+        layers.append(nn.MaxPool3d(kernel_size=2))
+        if self.use_dropout:
+            layers.append(nn.Dropout3d(p=self.dropout_prob_conv))
+
+        conv_block = nn.Sequential(*layers)
+
         return conv_block
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -42,16 +54,24 @@ class Conv3DModel(pl.LightningModule):
         out = out.view(out.size(0), -1) # flatten
         out = self.fc1(out)
         out = self.relu(out)
-        if self.use_batchnorm:
-            out = self.batch(out)
         if self.use_dropout:
             out = self.drop(out)
         out = self.fc2(out)
+        out = self.relu(out)
+        if self.use_dropout:
+            out = self.drop(out)
+        out = self.fc3(out)
+        out = self.relu(out)
+        if self.use_dropout:
+            out = self.drop(out)
+        out = self.fc4(out)
+        # if self.use_batchnorm:
+            # out = self.batch(out)
         
         return out
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.0065)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
     
         return optimizer
 
