@@ -11,7 +11,7 @@ from typing import Tuple
 
 class Conv3DModel(pl.LightningModule):
     
-    def __init__(self, learning_rate: float, use_batchnorm: bool = False, use_dropout: bool = False) -> None:
+    def __init__(self, learning_rate: float, use_batchnorm: bool = False, use_dropout: bool = False, weight_decay: bool = True) -> None:
         super(Conv3DModel, self).__init__()
         
         self.num_classes = 1
@@ -21,6 +21,7 @@ class Conv3DModel(pl.LightningModule):
         self.dropout_prob_linear = 0.50
         self.use_batchnorm = use_batchnorm
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         
         self.relu = nn.LeakyReLU()
         self.conv_layer1 = self.set_conv_block(1, 128)
@@ -71,7 +72,14 @@ class Conv3DModel(pl.LightningModule):
         return out
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        if self.weight_decay:
+            optimizer = torch.optim.AdamW(self.parameters(),
+                                          lr=self.learning_rate,
+                                          weight_decay=0.005)
+        else:
+            optimizer = torch.optim.Adam(self.parameters(),
+                                         lr=self.learning_rate)
+
     
         return optimizer
 
@@ -90,7 +98,26 @@ class Conv3DModel(pl.LightningModule):
 
         return accuracy_score, precision_score, recall_score, f1_score
 
-    def training_step(self, batch: torch.Tensor, batch_idx: int):
+    def fetch_best_worst_imgs(self, logits: torch.Tensor, imgs: torch.Tensor) -> dict:
+        prob = torch.sigmoid(logits)
+        # calculate max and min prob
+        max_prob = torch.max(prob)
+        min_prob = torch.min(prob)
+        # calculate max and min prob idx
+        max_prob_idx = torch.argmax(prob)
+        min_prob_idx = torch.argmin(prob)
+        # select the corresponding images
+        max_prob_img = imgs[max_prob_idx,0,:,:,:]
+        min_prob_img = imgs[min_prob_idx,0,:,:,:]
+
+        out_dict = {
+            "best"  : [max_prob, max_prob_img],
+            "worst" : [min_prob, min_prob_img]
+        }
+
+        return out_dict
+
+    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
         logits = self(x)
         loss = F.binary_cross_entropy_with_logits(logits, y)
@@ -111,6 +138,7 @@ class Conv3DModel(pl.LightningModule):
         loss = F.binary_cross_entropy_with_logits(logits, y)
         # metrics
         accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
+        best_worst_dict = self.fetch_best_worst_imgs(logits, x)
 
         self.log('val_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True)
         self.log('val_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
@@ -118,7 +146,36 @@ class Conv3DModel(pl.LightningModule):
         self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
         self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
 
-        return loss
+        return loss, best_worst_dict
+
+    def projection_over_cols(self, img):
+        return torch.sum(img, 1)
+    
+    def validation_epoch_end(self, val_step_outputs) -> None:
+        # find images with best and worst prob over the validation set
+        max_prob = 0
+        min_prob = 2
+        max_prob_idx = min_prob_idx = -9999
+
+        for i, val_step_output in enumerate(val_step_outputs):
+            best_worst_dict = val_step_output[1]
+
+            best_prob = best_worst_dict['best'][0]
+            if best_prob > max_prob:
+                max_prob = best_prob
+                max_prob_idx = i
+            
+            worst_prob = best_worst_dict['worst'][0]
+            if worst_prob < min_prob:
+                min_prob = worst_prob
+                min_prob_idx = i
+        
+        best_img = val_step_outputs[max_prob_idx][1]['best'][1]
+        worst_img = val_step_outputs[min_prob_idx][1]['worst'][1]
+
+        # log images
+        self.logger.experiment.add_image('high_score_img', self.projection_over_cols(best_img), dataformats='HW')
+        self.logger.experiment.add_image('low_score_img', self.projection_over_cols(worst_img), dataformats='HW')
 
 #################################################
 
