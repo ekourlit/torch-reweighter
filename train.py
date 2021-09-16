@@ -1,6 +1,5 @@
 import pdb
 import argparse
-from matplotlib import pyplot as plt
 import random
 import numpy as np
 import torch
@@ -11,25 +10,33 @@ from models import *
 from data import *
 
 #################################################
-# configuration
-
-BATCH_SIZE = 32
-NUM_WORKERS = 16
-EPOCHS = 200
-
-#################################################
 
 # set random seeds
 def fix_randomness(seed: int, deterministic: bool = False) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    pl.seed_everything(seed, workers=True)
     if deterministic:
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True)
 
-fix_randomness(42)
+fix_randomness(42, False)
+
+#################################################
+# Arugment parsing
+
+parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
+parser.add_argument('-s', '--save', action='store_true', dest='save', default=False, help='Save the trained model.')
+opts = parser.parse_args()
+save_model = opts.save
+
+#################################################
+# configuration
+
+BATCH_SIZE = 32
+NUM_WORKERS = 16
+EPOCHS = 10
+if save_model:
+    SAVEPATH = 'models/'
+    print("Trained model will be saved at", SAVEPATH)
 
 #################################################
 
@@ -48,19 +55,18 @@ instances = len(dataset_t)
 
 # split train/val/test
 # the rest will be validation
-train_ratio = 0.7
-test_ratio = 0.01
+train_ratio = 0.6
 train_instances = int(train_ratio*instances)
-val_instances = int((1-train_ratio-test_ratio)*instances)
-test_instances = int(test_ratio*instances)
+val_instances = int((1-train_ratio)*instances)
 
 # check if the splitting has been done correctly
-if instances != train_instances+val_instances+test_instances:
-    delta = instances - (train_instances+val_instances+test_instances)
+if instances != train_instances+val_instances:
+    delta = instances - (train_instances+val_instances)
     train_instances += delta
 
-ds_train, ds_val, ds_test = random_split(dataset_t,
-                                         [train_instances, val_instances, test_instances])
+ds_train, ds_val = random_split(dataset_t,
+                                [train_instances, val_instances],)
+                                # generator=torch.Generator().manual_seed(random.randint(0,1e6))) # let's not always train on the same data
 
 # get dataloaders
 train_loader    = DataLoader(ds_train,
@@ -70,11 +76,6 @@ train_loader    = DataLoader(ds_train,
 
 val_loader      = DataLoader(ds_val,
                              batch_size=BATCH_SIZE,
-                             shuffle=False,
-                             num_workers=NUM_WORKERS)
-
-test_loader     = DataLoader(ds_test,
-                             batch_size=BATCH_SIZE, # can I use here the whole ds? i.e. instances
                              shuffle=False,
                              num_workers=NUM_WORKERS)
 
@@ -102,3 +103,7 @@ trainer = pl.Trainer(gpus=1,
                      logger=logger)
 # train
 trainer.fit(model, train_loader, val_loader)
+
+# save model
+if save_model:
+    torch.save(model.state_dict(), SAVEPATH+'conv3d.pt')
