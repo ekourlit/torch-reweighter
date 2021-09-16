@@ -11,7 +11,7 @@ from typing import Tuple
 
 class Conv3DModel(pl.LightningModule):
     
-    def __init__(self, learning_rate: float, use_batchnorm: bool = False, use_dropout: bool = False, weight_decay: bool = True) -> None:
+    def __init__(self, learning_rate: float = 1e-3, use_batchnorm: bool = False, use_dropout: bool = False, weight_decay: bool = True) -> None:
         super(Conv3DModel, self).__init__()
         
         self.num_classes = 1
@@ -176,6 +176,14 @@ class Conv3DModel(pl.LightningModule):
         # log images
         self.logger.experiment.add_image('high_score_img', self.projection_over_cols(best_img), dataformats='HW')
         self.logger.experiment.add_image('low_score_img', self.projection_over_cols(worst_img), dataformats='HW')
+
+    def predict_step(self, batch: int, batch_idx: int):
+        x, y = batch
+        logits = self(x)
+        probs = torch.sigmoid(logits)
+        weights = probs / (1 - probs)
+
+        return weights
 
 #################################################
 
