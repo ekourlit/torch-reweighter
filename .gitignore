@@ -1,3 +1,6 @@
 data/
 *logs/
 ._*
+plots/
+__pycache__/
+.vscode
