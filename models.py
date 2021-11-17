@@ -30,17 +30,15 @@ class Conv3DModel(pl.LightningModule):
         self.fc2 = nn.Linear(64, 256)
         self.fc3 = nn.Linear(256, 256)
         self.fc4 = nn.Linear(256, self.num_classes)
-        if self.use_batchnorm:
-            self.batch=nn.BatchNorm1d(self.num_hidden_linear_units)
         if self.use_dropout:
             self.drop=nn.Dropout(p=self.dropout_prob_linear)
         
     def set_conv_block(self, in_c: int, out_c: int) -> torch.nn.Sequential:
         layers = []
+        if self.use_batchnorm:
+            layers.append(nn.BatchNorm3d(in_c))
         layers.append(nn.Conv3d(in_c, out_c, kernel_size=3, stride=1, padding=0))
         layers.append(self.relu)
-        if self.use_batchnorm:
-            layers.append(nn.BatchNorm3d(out_c))
         layers.append(nn.MaxPool3d(kernel_size=2))
         if self.use_dropout:
             layers.append(nn.Dropout3d(p=self.dropout_prob_conv))
@@ -66,8 +64,6 @@ class Conv3DModel(pl.LightningModule):
         if self.use_dropout:
             out = self.drop(out)
         out = self.fc4(out)
-        # if self.use_batchnorm:
-            # out = self.batch(out)
         
         return out
 
@@ -124,11 +120,11 @@ class Conv3DModel(pl.LightningModule):
         # metrics
         accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
 
-        self.log('train_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True)
-        self.log('train_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
-        self.log('train_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
-        self.log('train_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
-        self.log('train_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
+        self.log('train_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True, sync_dist=True)
+        self.log('train_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('train_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('train_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('train_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
 
         return loss
 
@@ -140,13 +136,53 @@ class Conv3DModel(pl.LightningModule):
         accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
         best_worst_dict = self.fetch_best_worst_imgs(logits, x)
 
-        self.log('val_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True)
-        self.log('val_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
-        self.log('val_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
-        self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
-        self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True)
+        self.log('val_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True, sync_dist=True)
+        self.log('val_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('val_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
 
-        return loss, best_worst_dict
+        return {'loss': loss, 'dict': best_worst_dict}
+
+    # def validation_step_end(self, batch_parts):
+    #     # aggregate when using multiple GPUs
+        
+    #     # loss
+    #     losses = batch_parts['loss']
+    #     loss = torch.mean(losses)
+        
+    #     # best_worst_dicts
+    #     dicts = batch_parts['dict']
+    #     # find which GPU holded the image with the best score
+    #     best_gpu_idx = torch.argmax(dicts['best'][0])
+    #     max_prob = dicts['best'][0][best_gpu_idx]
+    #     # idxs to select images
+    #     if best_gpu_idx == 0:
+    #         start_idx = 0
+    #         end_edx = 30
+    #     elif best_gpu_idx == 1:
+    #         start_idx = 30
+    #         end_edx = 60
+    #     max_prob_img = dicts['best'][1][start_idx:end_edx, :, :]
+    #     # find which GPU holded the image with the best score
+    #     worst_gpu_idx = torch.argmin(dicts['worst'][0])
+    #     min_prob = dicts['worst'][0][worst_gpu_idx]
+    #     # idxs to select images
+    #     if worst_gpu_idx == 0:
+    #         start_idx = 0
+    #         end_edx = 30
+    #     elif worst_gpu_idx == 1:
+    #         start_idx = 30
+    #         end_edx = 60
+    #     min_prob_img = dicts['worst'][1][start_idx:end_edx, :, :]
+
+    #     # re-construct return dict
+    #     best_worst_dict = {
+    #         "best"  : [max_prob, max_prob_img],
+    #         "worst" : [min_prob, min_prob_img]
+    #     }
+        
+    #     return {'loss': loss, 'dict': best_worst_dict}
 
     def projection_over_cols(self, img):
         return torch.sum(img, 1)
@@ -158,7 +194,7 @@ class Conv3DModel(pl.LightningModule):
         max_prob_idx = min_prob_idx = -9999
 
         for i, val_step_output in enumerate(val_step_outputs):
-            best_worst_dict = val_step_output[1]
+            best_worst_dict = val_step_output['dict']
 
             best_prob = best_worst_dict['best'][0]
             if best_prob > max_prob:
@@ -170,20 +206,20 @@ class Conv3DModel(pl.LightningModule):
                 min_prob = worst_prob
                 min_prob_idx = i
         
-        best_img = val_step_outputs[max_prob_idx][1]['best'][1]
-        worst_img = val_step_outputs[min_prob_idx][1]['worst'][1]
+        best_img = val_step_outputs[max_prob_idx]['dict']['best'][1]
+        worst_img = val_step_outputs[min_prob_idx]['dict']['worst'][1]
 
         # log images
         self.logger.experiment.add_image('high_score_img', self.projection_over_cols(best_img), dataformats='HW')
         self.logger.experiment.add_image('low_score_img', self.projection_over_cols(worst_img), dataformats='HW')
 
-    def predict_step(self, batch: int, batch_idx: int):
-        x, y = batch
+    def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
+        x, _ = batch
         logits = self(x)
         probs = torch.sigmoid(logits)
         weights = probs / (1 - probs)
 
-        return weights
+        return probs, weights
 
 #################################################
 
