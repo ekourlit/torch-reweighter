@@ -1,13 +1,11 @@
 import pdb
 import argparse
-import random
-import numpy as np
 import torch
-from torch.utils.data import random_split, DataLoader, ConcatDataset
+from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from models import *
-from data import *
+from models import Conv3DModel
+from data import CellsDataset
 
 #################################################
 
@@ -31,31 +29,25 @@ save_model = opts.save
 #################################################
 # configuration
 
-BATCH_SIZE = 32
+MODELNAME = 'conv3d_large1_1GPU_test'
+BATCH_SIZE = 128
 NUM_WORKERS = 16
-EPOCHS = 10
+EPOCHS = 2
 if save_model:
     SAVEPATH = 'models/'
     print("Trained model will be saved at", SAVEPATH)
 
 #################################################
 
-# load datasets
-dataset_nom = get_HDF5_dataset('showers-10kPhot1GeV_calo_01.hdf5')
-dataset_t_nom = get_tensor_dataset(dataset_nom, nominal=True)
-
-dataset_alt = get_HDF5_dataset('showers-10kPhot1GeV_calo_10.hdf5')
-dataset_t_alt = get_tensor_dataset(dataset_alt)
-
-# concatenate tensor datasets
-dataset_t = ConcatDataset([dataset_t_nom, dataset_t_alt])
+# load data into custom Dataset
+dataset_t = CellsDataset('/atlasfs02/a/users/ekourlitis/ILDCaloSim/e-/e-_large/', BATCH_SIZE)
 
 # number of instances/examples
 instances = len(dataset_t)
 
-# split train/val/test
+# split train/val
 # the rest will be validation
-train_ratio = 0.6
+train_ratio = 0.99
 train_instances = int(train_ratio*instances)
 val_instances = int((1-train_ratio)*instances)
 
@@ -64,18 +56,21 @@ if instances != train_instances+val_instances:
     delta = instances - (train_instances+val_instances)
     train_instances += delta
 
+print("Train instances: %i" % (train_instances*BATCH_SIZE))
+print("Validation instances: %i" % (val_instances*BATCH_SIZE))
+
 ds_train, ds_val = random_split(dataset_t,
                                 [train_instances, val_instances],)
                                 # generator=torch.Generator().manual_seed(random.randint(0,1e6))) # let's not always train on the same data
 
 # get dataloaders
 train_loader    = DataLoader(ds_train,
-                             batch_size=BATCH_SIZE,
+                             batch_size=None,
                              shuffle=True,
                              num_workers=NUM_WORKERS)
 
 val_loader      = DataLoader(ds_val,
-                             batch_size=BATCH_SIZE,
+                             batch_size=None,
                              shuffle=False,
                              num_workers=NUM_WORKERS)
 
@@ -89,15 +84,16 @@ pdb.set_trace()
 #################################################
 
 # init model
-model = Conv3DModel(learning_rate=1e-4,
-                    use_batchnorm=False,
+model = Conv3DModel(learning_rate=1e-3,
+                    use_batchnorm=True,
                     use_dropout=True)
 
 # log
-logger = TensorBoardLogger('logs/', 'conv3d')
+logger = TensorBoardLogger('logs/', MODELNAME)
 
 # init a trainer
-trainer = pl.Trainer(gpus=1,
+trainer = pl.Trainer(gpus=[1],
+                    #  accelerator='ddp',
                      max_epochs=EPOCHS,
                      log_every_n_steps=5,
                      logger=logger)
@@ -106,4 +102,4 @@ trainer.fit(model, train_loader, val_loader)
 
 # save model
 if save_model:
-    torch.save(model.state_dict(), SAVEPATH+'conv3d.pt')
+    torch.save(model.state_dict(), SAVEPATH+MODELNAME+'.pt')
