@@ -223,7 +223,7 @@ class Conv3DModel(pl.LightningModule):
         probs = torch.sigmoid(logits)
         weights = probs / (1 - probs)
 
-        return probs, weights
+        return probs, 1/weights
 
 #################################################
 
