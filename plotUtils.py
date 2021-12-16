@@ -121,6 +121,7 @@ class Plotter:
                 markersize=5)
 
         ax2.set_ylabel('Ratio (Alt./Nom.)')
+        ax2.set_xlabel('Energy [MeV]')
         ax2.set_xlim((xmin, xmax))
 
         # hline
@@ -131,27 +132,6 @@ class Plotter:
         ax2.set_ylim([0.5, 2])
         # grid
         ax2.grid(which='major', axis='y')
-
-        # ax2.bar(bins[:-1],     # this is what makes it comparable
-        #         np.divide(ns[1], ns[0], out=np.zeros_like(ns[1]), where=ns[0]!=0),
-        #         alpha=0.4,
-        #         color='C1')
-        # ax2.bar(bins[:-1],     # this is what makes it comparable
-        #         np.divide(ns_wgt, ns[0], out=np.zeros_like(ns_wgt), where=ns[0]!=0),
-        #         fill=False,
-        #         linewidth=1,
-        #         color='k',
-        #         linestyle='--')
-
-        # # hline
-        # ax2.axhline(y=1.0, 
-        #             color='r', 
-        #             linestyle='-',
-        #             linewidth=0.5)
-
-        # ax2.set_ylim([0, 4])
-        # ax2.set_ylabel('Ratio (Alt./Nom.)')
-        # ax2.set_xlabel('Energy [MeV]')
         
         plt.savefig(self.saveDir+'/edep.png', bbox_inches='tight')
 
