@@ -29,10 +29,10 @@ save_model = opts.save
 #################################################
 # configuration
 
-MODELNAME = 'conv3d_large1_1GPU_test'
+MODELNAME = 'conv3d_large1_1GPU'
 BATCH_SIZE = 128
-NUM_WORKERS = 16
-EPOCHS = 2
+NUM_WORKERS = 8
+EPOCHS = 50
 if save_model:
     SAVEPATH = 'models/'
     print("Trained model will be saved at", SAVEPATH)
@@ -40,7 +40,7 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/atlasfs02/a/users/ekourlitis/ILDCaloSim/e-/e-_large/', BATCH_SIZE)
+dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/', BATCH_SIZE)
 
 # number of instances/examples
 instances = len(dataset_t)
@@ -85,7 +85,7 @@ pdb.set_trace()
 
 # init model
 model = Conv3DModel(learning_rate=1e-3,
-                    use_batchnorm=True,
+                    use_batchnorm=False,
                     use_dropout=True)
 
 # log

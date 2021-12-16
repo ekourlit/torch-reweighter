@@ -11,7 +11,11 @@ from typing import Tuple
 
 class Conv3DModel(pl.LightningModule):
     
-    def __init__(self, learning_rate: float = 1e-3, use_batchnorm: bool = False, use_dropout: bool = False, weight_decay: bool = True) -> None:
+    def __init__(self, 
+                 learning_rate: float = 1e-3,
+                 use_batchnorm: bool = False,
+                 use_dropout: bool = False,
+                 weight_decay: bool = True) -> None:
         super(Conv3DModel, self).__init__()
         
         self.num_classes = 1
