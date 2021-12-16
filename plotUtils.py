@@ -13,8 +13,12 @@ class Plotter:
     The different kind of plots are created by the class methods.
     """
 
-    def __init__(self, nominal_dataset: h5py._hl.group.Group, dataset: h5py._hl.group.Group, weights: np.ndarray) -> None:
-        self.max_events = 4900
+    def __init__(self,
+                 nominal_dataset: h5py._hl.group.Group, 
+                 dataset: h5py._hl.group.Group, 
+                 weights: np.ndarray) -> None:
+
+        self.max_events = 9000
         # construct np.arrays
         self.nominal_layers = nominal_dataset['layers'][:][:self.max_events, :, :, :] # shape: (self.max_events, 30, 30, 30)
         self.layers = dataset['layers'][:][:self.max_events, :, :, :] # shape: (self.max_events, 30, 30, 30)
@@ -58,8 +62,8 @@ class Plotter:
         fig.suptitle('Event energy deposit')
 
         myBins = 25
-        xmin = 0
-        xmax = 50
+        xmin = 100
+        xmax = 300
         density = True
 
         ns, bins, patches = ax1.hist(histos, 
@@ -84,27 +88,27 @@ class Plotter:
         ax1.legend()
         ax1.set_ylabel('Events')
 
-        # ratio plot
-        ax2.bar(bins[:-1],     # this is what makes it comparable
-                np.divide(ns[1], ns[0], out=np.zeros_like(ns[1]), where=ns[0]!=0),
-                alpha=0.4,
-                color='C1')
-        ax2.bar(bins[:-1],     # this is what makes it comparable
-                np.divide(ns_wgt, ns[0], out=np.zeros_like(ns_wgt), where=ns[0]!=0),
-                fill=False,
-                linewidth=1,
-                color='k',
-                linestyle='--')
+        # # ratio plot
+        # ax2.bar(bins[:-1],     # this is what makes it comparable
+        #         np.divide(ns[1], ns[0], out=np.zeros_like(ns[1]), where=ns[0]!=0),
+        #         alpha=0.4,
+        #         color='C1')
+        # ax2.bar(bins[:-1],     # this is what makes it comparable
+        #         np.divide(ns_wgt, ns[0], out=np.zeros_like(ns_wgt), where=ns[0]!=0),
+        #         fill=False,
+        #         linewidth=1,
+        #         color='k',
+        #         linestyle='--')
 
-        # hline
-        ax2.axhline(y=1.0, 
-                    color='r', 
-                    linestyle='-',
-                    linewidth=0.5)
+        # # hline
+        # ax2.axhline(y=1.0, 
+        #             color='r', 
+        #             linestyle='-',
+        #             linewidth=0.5)
 
-        ax2.set_ylim([0, 4])
-        ax2.set_ylabel('Ratio (Alt./Nom.)')
-        ax2.set_xlabel('Energy [MeV]')
+        # ax2.set_ylim([0, 4])
+        # ax2.set_ylabel('Ratio (Alt./Nom.)')
+        # ax2.set_xlabel('Energy [MeV]')
         
         plt.savefig(self.saveDir+'/edep.png', bbox_inches='tight')
 
@@ -210,9 +214,11 @@ def plot_weights(weights: np.ndarray) -> None:
     print("Plotter\t::\tPlotting weights")
 
     plt.figure(figsize=(5 , 5), dpi=200)
-    plt.hist(weights, bins=100, lw=2)
+    bins = 10**(np.arange(0,6))
+    plt.hist(weights, bins=bins, lw=2)
     plt.ylabel("Events")
-    plt.yscale('log')    
+    plt.yscale('log')
+    plt.xscale('log')
     plt.xlabel("Weight")
 
     saveDir = 'plots/'+today

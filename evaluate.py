@@ -21,7 +21,7 @@ def fix_randomness(seed: int, deterministic: bool = False) -> None:
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True)
 
-fix_randomness(42, False)
+fix_randomness(42, True)
 
 def get_flat_array(result_tensor, idx):
     # result_tensor is a list
@@ -53,21 +53,11 @@ NUM_WORKERS = 2
 #################################################
 
 # load test dataset
-# dataset = get_HDF5_dataset('showers-100kPhot1GeV_calo_10.hdf5')
-# dataset = get_HDF5_dataset('showers-5kPhot1GeV_calo_10_test.hdf5')
-# dataset_t = get_tensor_dataset(dataset)
+dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-30.hdf5')
+dataset_t = get_tensor_dataset(dataset)
 # load nominal dataset (just for plotting)
-# nom_dataset = get_HDF5_dataset('showers-100kPhot1GeV_calo_01.hdf5')
+nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
 
-# load datasets
-dataset_nom = get_HDF5_dataset('showers-5kPhot1GeV_calo_01_test.hdf5')
-dataset_t_nom = get_tensor_dataset(dataset_nom, nominal=True)
-
-dataset_alt = get_HDF5_dataset('showers-5kPhot1GeV_calo_10_test.hdf5')
-dataset_t_alt = get_tensor_dataset(dataset_alt)
-
-# concatenate tensor datasets
-dataset_t = ConcatDataset([dataset_t_nom, dataset_t_alt])
 # get the labels
 labels = np.array(list(map(lambda x: x[1].numpy(), dataset_t))).reshape(-1)
 
@@ -110,11 +100,13 @@ weights = get_flat_array(result_tensor, 1)
 # score=1 means alternative so I can't re-weight 
 # I have lost info on how much it looks like to nominal
 weights[np.isinf(weights) == True] = 0.0
-# I should print here what's the portion of zeros. this is problematic...
+# how many zeros?
+non_zero_counter = np.count_nonzero(weights==0)
+print("Zero weights fraction %0.3f%% " % ( (non_zero_counter/len(weights))*100 ))
 
 # plotting
-# plots = Plotter(nom_dataset, dataset, weights)
-# plots.plot_event_edep()
+plots = Plotter(nom_dataset, dataset, weights)
+plots.plot_event_edep()
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
 plot_weights(weights)
