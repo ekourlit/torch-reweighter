@@ -12,7 +12,6 @@ from math import floor
 
 def get_HDF5_dataset(filename: str) -> h5py._hl.group.Group:
     # open the file
-    # storage_path='/atlasfs02/a/users/ekourlitis/ILDCaloSim/'
     file = h5py.File(filename, 'r')
     # get the dataset
     dataset = file[list(file.keys())[0]]
@@ -37,9 +36,9 @@ def get_tensor_dataset(dataset: h5py._hl.group.Group, nominal: bool = False) -> 
     # create torch dataset
     dataset_t = TensorDataset(layers_t, labels_t)
 
-    # normalize to [-1, 1] -> that's wrong...
-    dataset_t.transform = transforms.Compose(
-        [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    # # normalize to [-1, 1] -> that's wrong...
+    # dataset_t.transform = transforms.Compose(
+    #     [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     return dataset_t
 
