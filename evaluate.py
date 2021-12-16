@@ -53,7 +53,7 @@ NUM_WORKERS = 2
 #################################################
 
 # load test dataset
-dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-30.hdf5')
+dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-95.hdf5')
 dataset_t = get_tensor_dataset(dataset)
 # load nominal dataset (just for plotting)
 nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
@@ -101,8 +101,8 @@ weights = get_flat_array(result_tensor, 1)
 # I have lost info on how much it looks like to nominal
 weights[np.isinf(weights) == True] = 0.0
 # how many zeros?
-non_zero_counter = np.count_nonzero(weights==0)
-print("Zero weights fraction %0.3f%% " % ( (non_zero_counter/len(weights))*100 ))
+zero_counter = np.count_nonzero(weights==0)
+print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))
 
 # plotting
 plots = Plotter(nom_dataset, dataset, weights)

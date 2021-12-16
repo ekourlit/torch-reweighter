@@ -6,6 +6,8 @@ today = str(date.today())
 from os import system
 import pdb
 from sklearn.calibration import calibration_curve
+from scipy.stats import wasserstein_distance
+from scipy.spatial.distance import jensenshannon
 
 class Plotter:
     """
@@ -61,7 +63,7 @@ class Plotter:
         fig, (ax1, ax2) = plt.subplots(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
         fig.suptitle('Event energy deposit')
 
-        myBins = 25
+        myBins = 20
         xmin = 100
         xmax = 300
         density = True
@@ -85,10 +87,51 @@ class Plotter:
                                                  label="Alternative*Weight",
                                                  density=density)
 
+        w_distance = wasserstein_distance(ns[1], ns[0])
+        w_distance_wgt = wasserstein_distance(ns_wgt, ns[0])
+        js_distance = jensenshannon(ns[1], ns[0])
+        js_distance_wgt = jensenshannon(ns_wgt, ns[0])
+        font = 6
+        ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
+
         ax1.legend()
         ax1.set_ylabel('Events')
+        ax1.set_xlim((xmin, xmax))
 
-        # # ratio plot
+        # ratio plot
+        num = ns[1]
+        denom = ns[0]
+        ratios = np.divide(num, denom, out=np.zeros_like(num), where=denom!=0)
+        ax2.errorbar(bins[:-1],     # this is what makes it comparable
+                ratios,
+                linestyle='None',
+                color='C1',
+                marker = 'o',
+                markersize=5)
+        num_wgt = ns_wgt
+        ratios_wgt = np.divide(num_wgt, denom, out=np.zeros_like(num_wgt), where=denom!=0)
+        ax2.errorbar(bins[:-1],     # this is what makes it comparable
+                ratios_wgt,
+                linestyle='None',
+                color='k',
+                marker = 'o',
+                markersize=5)
+
+        ax2.set_ylabel('Ratio (Alt./Nom.)')
+        ax2.set_xlim((xmin, xmax))
+
+        # hline
+        ax2.axhline(y=1.0, 
+                    color='gray', 
+                    linestyle='-',
+                    linewidth=0.5)
+        ax2.set_ylim([0.5, 2])
+        # grid
+        ax2.grid(which='major', axis='y')
+
         # ax2.bar(bins[:-1],     # this is what makes it comparable
         #         np.divide(ns[1], ns[0], out=np.zeros_like(ns[1]), where=ns[0]!=0),
         #         alpha=0.4,
@@ -214,11 +257,11 @@ def plot_weights(weights: np.ndarray) -> None:
     print("Plotter\t::\tPlotting weights")
 
     plt.figure(figsize=(5 , 5), dpi=200)
-    bins = 10**(np.arange(0,6))
-    plt.hist(weights, bins=bins, lw=2)
+    # bins = 10**(np.arange(0,6))
+    plt.hist(weights, bins=100, lw=2)
     plt.ylabel("Events")
     plt.yscale('log')
-    plt.xscale('log')
+    # plt.xscale('log')
     plt.xlabel("Weight")
 
     saveDir = 'plots/'+today
