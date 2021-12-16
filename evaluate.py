@@ -54,6 +54,8 @@ NUM_WORKERS = 2
 
 # load test dataset
 dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-95.hdf5')
+# load train dataset
+# dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-30.hdf5')
 dataset_t = get_tensor_dataset(dataset)
 # load nominal dataset (just for plotting)
 nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
