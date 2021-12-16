@@ -28,12 +28,12 @@ class Conv3DModel(pl.LightningModule):
         self.weight_decay = weight_decay
         
         self.relu = nn.LeakyReLU()
-        self.conv_layer1 = self.set_conv_block(1, 128)
-        self.conv_layer2 = self.set_conv_block(128, 128)
-        self.fc1 = nn.Linear(27648, 64) # I still don't know how to calculate the first argument number
-        self.fc2 = nn.Linear(64, 256)
-        self.fc3 = nn.Linear(256, 256)
-        self.fc4 = nn.Linear(256, self.num_classes)
+        self.conv_layer1 = self.set_conv_block(1, 6)
+        # self.conv_layer2 = self.set_conv_block(128, 128)
+        self.fc1 = nn.Linear(10368, 512) # I still don't know how to calculate the first argument number
+        self.fc2 = nn.Linear(512, 512)
+        self.fc3 = nn.Linear(512, 512)
+        self.fc4 = nn.Linear(512, self.num_classes)
         if self.use_dropout:
             self.drop=nn.Dropout(p=self.dropout_prob_linear)
         
@@ -41,7 +41,7 @@ class Conv3DModel(pl.LightningModule):
         layers = []
         if self.use_batchnorm:
             layers.append(nn.BatchNorm3d(in_c))
-        layers.append(nn.Conv3d(in_c, out_c, kernel_size=3, stride=1, padding=0))
+        layers.append(nn.Conv3d(in_c, out_c, kernel_size=6, stride=1, padding=0))
         layers.append(self.relu)
         layers.append(nn.MaxPool3d(kernel_size=2))
         if self.use_dropout:
@@ -53,7 +53,7 @@ class Conv3DModel(pl.LightningModule):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.conv_layer1(x)
-        out = self.conv_layer2(out)
+        # out = self.conv_layer2(out)
         out = out.view(out.size(0), -1) # flatten
         out = self.fc1(out)
         out = self.relu(out)

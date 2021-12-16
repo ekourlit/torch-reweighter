@@ -29,7 +29,7 @@ save_model = opts.save
 #################################################
 # configuration
 
-MODELNAME = 'conv3d_large1_1GPU'
+MODELNAME = 'conv3d_large2_1GPU'
 BATCH_SIZE = 128
 NUM_WORKERS = 8
 EPOCHS = 50
@@ -40,14 +40,14 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/', BATCH_SIZE)
+dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', BATCH_SIZE)
 
 # number of instances/examples
 instances = len(dataset_t)
 
 # split train/val
 # the rest will be validation
-train_ratio = 0.99
+train_ratio = 0.95
 train_instances = int(train_ratio*instances)
 val_instances = int((1-train_ratio)*instances)
 
@@ -84,7 +84,7 @@ pdb.set_trace()
 #################################################
 
 # init model
-model = Conv3DModel(learning_rate=1e-3,
+model = Conv3DModel(learning_rate=5e-4,
                     use_batchnorm=False,
                     use_dropout=True)
 
@@ -92,10 +92,11 @@ model = Conv3DModel(learning_rate=1e-3,
 logger = TensorBoardLogger('logs/', MODELNAME)
 
 # init a trainer
-trainer = pl.Trainer(gpus=[1],
+trainer = pl.Trainer(#accelerator='cpu',
+                     gpus=[1],
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
-                     log_every_n_steps=5,
+                     log_every_n_steps=100,
                      logger=logger)
 # train
 trainer.fit(model, train_loader, val_loader)
