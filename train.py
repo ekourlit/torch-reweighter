@@ -40,7 +40,7 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', BATCH_SIZE)
+dataset_t = CellsDataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/', BATCH_SIZE)
 
 # number of instances/examples
 instances = len(dataset_t)
@@ -97,7 +97,9 @@ trainer = pl.Trainer(#accelerator='cpu',
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
                      log_every_n_steps=100,
-                     logger=logger)
+                     logger=logger,
+    #progress_bar_refresh_rate=0,
+)
 # train
 trainer.fit(model, train_loader, val_loader)
 
