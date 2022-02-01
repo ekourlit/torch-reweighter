@@ -29,7 +29,7 @@ save_model = opts.save
 #################################################
 # configuration
 
-MODELNAME = 'conv3d_large2_1GPU'
+MODELNAME = 'conv3d_large2_1GPU_noFC2'
 BATCH_SIZE = 128
 NUM_WORKERS = 8
 EPOCHS = 50
@@ -97,7 +97,8 @@ trainer = pl.Trainer(#accelerator='cpu',
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
                      log_every_n_steps=100,
-                     logger=logger)
+                     logger=logger,
+)
 # train
 trainer.fit(model, train_loader, val_loader)
 

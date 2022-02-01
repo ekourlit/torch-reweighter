@@ -96,12 +96,15 @@ result_tensor = trainer.predict(model,
                                 return_predictions=True)
 
 probs = get_flat_array(result_tensor, 0)
-weights = get_flat_array(result_tensor, 1)
+weights = 1./get_flat_array(result_tensor, 1)
 # convert any inf to 0
 # because score=1 → weight=inf
 # score=1 means alternative so I can't re-weight 
 # I have lost info on how much it looks like to nominal
 weights[np.isinf(weights) == True] = 0.0
+maxWeight = 500
+weights[weights > maxWeight] = 0#maxWeight
+
 # how many zeros?
 zero_counter = np.count_nonzero(weights==0)
 print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))

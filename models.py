@@ -2,7 +2,7 @@ import pdb
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-import sparseconvnet as scn
+#import sparseconvnet as scn
 import torch.nn.functional as F
 from torchmetrics.functional import accuracy, precision, recall, f1
 from typing import Tuple
@@ -59,10 +59,10 @@ class Conv3DModel(pl.LightningModule):
         out = self.relu(out)
         if self.use_dropout:
             out = self.drop(out)
-        out = self.fc2(out)
-        out = self.relu(out)
-        if self.use_dropout:
-            out = self.drop(out)
+        # out = self.fc2(out)
+        # out = self.relu(out)
+        # if self.use_dropout:
+        #     out = self.drop(out)
         out = self.fc3(out)
         out = self.relu(out)
         if self.use_dropout:

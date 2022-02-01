@@ -8,6 +8,12 @@ import pdb
 from sklearn.calibration import calibration_curve
 from scipy.stats import wasserstein_distance
 from scipy.spatial.distance import jensenshannon
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib.lines import Line2D
+plt.style.use('default')
+font = {'size':14}
+matplotlib.rc('font', **font)
 
 class Plotter:
     """
@@ -53,74 +59,89 @@ class Plotter:
         Distribution of event energy deposit
         '''
         print("Plotter\t::\tPlotting event energy deposit")
-
+        colors=['k', 'r', 'b', 'g', 'orange']#, 'c']
+        markerstyles=['.' for c in colors]
+        custom_lines = [Line2D([0], [0], color=color, lw=2) for color in colors[:2]]
+        custom_lines.append(Line2D([0], [0], color=colors[2], lw=2, linestyle='--'))
         nom_edep = self.calculate_edep(self.nominal_layers)
         alt_edep = self.calculate_edep(self.layers)
         histos = [nom_edep, alt_edep]
+        
+        #fig.suptitle('Event energy deposit')
+        myBins = 20
+        xmin = 150
+        xmax = 230.
+        binWidth = (xmax-xmin)/myBins
+        density = True
+        #labels = ["Nominal", "Alternative", "Alternative*Weight"]
+        labels = ["Nominal (0.1 mm)", "10 mm", "Corrected 10 mm"]
 
+        # First get the raw counts so that we calculate the uncertainty.
+        nsRaw, bins, patches = plt.hist(histos, bins=myBins)
+        relUncs = 1./np.sqrt(nsRaw)
         # plot histo
         plt.clf()
-        fig, (ax1, ax2) = plt.subplots(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
-        fig.suptitle('Event energy deposit')
-
-        myBins = 20
-        xmin = 100
-        xmax = 300
-        density = True
-
+        fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw = {'height_ratios':[3, 1]}, sharex=True, dpi=200)#(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
         ns, bins, patches = ax1.hist(histos, 
                                      bins=myBins,
                                      range=(xmin, xmax),
-                                     histtype='stepfilled',
-                                     alpha=0.4,
-                                     label=["Nominal", "Alternative"],
-                                     density=density)
+                                     histtype='step',
+                                     #alpha=0.4,
+                                     label=labels[:2],
+                                     linewidth=2,
+                                     #density=density,
+                                     weights=[100*np.ones((len(histo)))/len((histo)) for histo in histos],
+                                     color=colors[:2])
 
         ns_wgt, bins_wgt, patches_wgt = ax1.hist(alt_edep,
-                                                 weights=self.weights,
+                                                 weights=100*self.weights/self.weights.sum(),
                                                  bins=myBins,
                                                  range=(xmin, xmax),
                                                  histtype='step',
-                                                 linewidth=1,
-                                                 color='k',
+                                                 linewidth=2,
+                                                 color=colors[2],
                                                  linestyle='--',
-                                                 label="Alternative*Weight",
-                                                 density=density)
+                                                 label=labels[2],
+                                                 #density=density
+                                                 )
 
         w_distance = wasserstein_distance(ns[1], ns[0])
         w_distance_wgt = wasserstein_distance(ns_wgt, ns[0])
         js_distance = jensenshannon(ns[1], ns[0])
         js_distance_wgt = jensenshannon(ns_wgt, ns[0])
-        font = 6
-        ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        font = 8
+        # ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
+        # ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        # ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
+        # ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
 
-        ax1.legend()
-        ax1.set_ylabel('Events')
+        ax1.legend(custom_lines, labels, loc=2)
+        #ax1.set_ylabel('Events')
+        ax1.set_ylabel('Percent of total')
         ax1.set_xlim((xmin, xmax))
+        ax1.set_ylim([0, ax1.get_ylim()[1]*1.6])
 
         # ratio plot
         num = ns[1]
         denom = ns[0]
         ratios = np.divide(num, denom, out=np.zeros_like(num), where=denom!=0)
-        ax2.errorbar(bins[:-1],     # this is what makes it comparable
-                ratios,
-                linestyle='None',
-                color='C1',
-                marker = 'o',
-                markersize=5)
+        ax2.errorbar(bins[:-1]+binWidth/2,     # this is what makes it comparable
+                     ratios,
+                     linestyle='None',
+                     color=colors[1],
+                     marker = 'o',
+                     yerr=ratios*np.sqrt(np.power(relUncs[0],2)+np.power(relUncs[1],2)),
+                     markersize=5)
         num_wgt = ns_wgt
         ratios_wgt = np.divide(num_wgt, denom, out=np.zeros_like(num_wgt), where=denom!=0)
-        ax2.errorbar(bins[:-1],     # this is what makes it comparable
+        ax2.errorbar(bins[:-1]+binWidth/2,     # this is what makes it comparable
                 ratios_wgt,
                 linestyle='None',
-                color='k',
+                     color=colors[2],
                 marker = 'o',
                 markersize=5)
 
-        ax2.set_ylabel('Ratio (Alt./Nom.)')
+        ax2.set_ylabel('Ratio\n(X/Nominal)')
         ax2.set_xlabel('Energy [MeV]')
         ax2.set_xlim((xmin, xmax))
 
@@ -129,11 +150,14 @@ class Plotter:
                     color='gray', 
                     linestyle='-',
                     linewidth=0.5)
-        ax2.set_ylim([0.5, 2])
+        ax2.set_ylim([0.3, 1.7])
         # grid
         ax2.grid(which='major', axis='y')
-        
+        fig.subplots_adjust(hspace=0.1)
+        fig.canvas.draw()
         plt.savefig(self.saveDir+'/edep.png', bbox_inches='tight')
+        plt.savefig(self.saveDir+'/edep.svg', bbox_inches='tight')
+        plt.savefig(self.saveDir+'/edep.pdf', bbox_inches='tight')
 
     def plot_event_sparcity(self):
         '''
