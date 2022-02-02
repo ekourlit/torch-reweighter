@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH --gres=gpu:1
+#SBATCH --job-name=train_torch_reweighter
+#SBATCH -N 1
+#SBATCH -o /home/whopkins/torch-reweighter/logs/train.%j.%N.out
+#SBATCH -e /home/whopkins/torch-reweighter/logs/train%j.%N.error
+#SBATCH --time=12:00:00
+#SBATCH -A STARTUP-WHOPKINS
+##SBATCH -A ATLAS-HEP-GROUP
+
+srun python train.py -s -n >& /home/whopkins/torch-reweighter/logs/train_batchNorm.log & 
+
+wait

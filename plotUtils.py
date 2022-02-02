@@ -54,7 +54,7 @@ class Plotter:
         
         return nonzero_portions
 
-    def plot_event_edep(self):
+    def plot_event_edep_WH(self):
         '''
         Distribution of event energy deposit
         '''
@@ -159,6 +159,94 @@ class Plotter:
         plt.savefig(self.saveDir+'/edep.svg', bbox_inches='tight')
         plt.savefig(self.saveDir+'/edep.pdf', bbox_inches='tight')
 
+
+    def plot_event_edep(self):
+        '''
+        Distribution of event energy deposit
+        '''
+        print("Plotter\t::\tPlotting event energy deposit")
+
+        nom_edep = self.calculate_edep(self.nominal_layers)
+        alt_edep = self.calculate_edep(self.layers)
+        histos = [nom_edep, alt_edep]
+
+        # plot histo
+        plt.clf()
+        fig, (ax1, ax2) = plt.subplots(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
+        fig.suptitle('Event energy deposit')
+
+        myBins = 20
+        xmin = 100
+        xmax = 300
+        density = True
+
+        ns, bins, patches = ax1.hist(histos, 
+                                     bins=myBins,
+                                     range=(xmin, xmax),
+                                     histtype='stepfilled',
+                                     alpha=0.4,
+                                     label=["Nominal", "Alternative"],
+                                     density=density)
+
+        ns_wgt, bins_wgt, patches_wgt = ax1.hist(alt_edep,
+                                                 weights=self.weights,
+                                                 bins=myBins,
+                                                 range=(xmin, xmax),
+                                                 histtype='step',
+                                                 linewidth=1,
+                                                 color='k',
+                                                 linestyle='--',
+                                                 label="Alternative*Weight",
+                                                 density=density)
+
+        w_distance = wasserstein_distance(ns[1], ns[0])
+        w_distance_wgt = wasserstein_distance(ns_wgt, ns[0])
+        js_distance = jensenshannon(ns[1], ns[0])
+        js_distance_wgt = jensenshannon(ns_wgt, ns[0])
+        font = 6
+        ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
+
+        ax1.legend()
+        ax1.set_ylabel('Events')
+        ax1.set_xlim((xmin, xmax))
+
+        # ratio plot
+        num = ns[1]
+        denom = ns[0]
+        ratios = np.divide(num, denom, out=np.zeros_like(num), where=denom!=0)
+        ax2.errorbar(bins[:-1],     # this is what makes it comparable
+                ratios,
+                linestyle='None',
+                color='C1',
+                marker = 'o',
+                markersize=5)
+        num_wgt = ns_wgt
+        ratios_wgt = np.divide(num_wgt, denom, out=np.zeros_like(num_wgt), where=denom!=0)
+        ax2.errorbar(bins[:-1],     # this is what makes it comparable
+                ratios_wgt,
+                linestyle='None',
+                color='k',
+                marker = 'o',
+                markersize=5)
+
+        ax2.set_ylabel('Ratio (Alt./Nom.)')
+        ax2.set_xlabel('Energy [MeV]')
+        ax2.set_xlim((xmin, xmax))
+
+        # hline
+        ax2.axhline(y=1.0, 
+                    color='gray', 
+                    linestyle='-',
+                    linewidth=0.5)
+        ax2.set_ylim([0.5, 2])
+        # grid
+        ax2.grid(which='major', axis='y')
+        
+        plt.savefig(self.saveDir+'/edep.png', bbox_inches='tight')
+        
     def plot_event_sparcity(self):
         '''
         Distribution of event cell sparcity

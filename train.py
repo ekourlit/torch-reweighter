@@ -23,14 +23,22 @@ fix_randomness(42, False)
 
 parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-s', '--save', action='store_true', dest='save', default=False, help='Save the trained model.')
+parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
+parser.add_argument('-m', '--modelName', type=str, default='conv3d_large2_1GPU', help='Name of model.')
+parser.add_argument('--stride', type=int, default=1, help='Stride of filter')
+parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
 opts = parser.parse_args()
 save_model = opts.save
 
 #################################################
 # configuration
 
-MODELNAME = 'conv3d_large2_1GPU_noFC2'
-BATCH_SIZE = 128
+batchNormStr = ''
+if opts.batchNorm:
+    batchNormStr = '_batchNorm'
+MODELNAME = opts.modelName+f'_stride{opts.stride}'+batchNormStr
+BATCH_SIZE = opts.batchSize
+
 NUM_WORKERS = 8
 EPOCHS = 50
 if save_model:
@@ -40,7 +48,7 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', BATCH_SIZE)
+dataset_t = CellsDataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/', BATCH_SIZE)
 
 # number of instances/examples
 instances = len(dataset_t)
@@ -83,21 +91,28 @@ pdb.set_trace()
 '''
 #################################################
 
+inputShape = next(iter(train_loader))[0].numpy().shape[1:]
+print("Shape of input:",inputShape)
+
 # init model
-model = Conv3DModel(learning_rate=5e-4,
-                    use_batchnorm=False,
-                    use_dropout=True)
+model = Conv3DModel(inputShape,
+                    learning_rate=5e-4,
+                    use_batchnorm=opts.batchNorm,
+                    use_dropout=True,
+                    stride=opts.stride,
+                    )
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
 
 # init a trainer
 trainer = pl.Trainer(#accelerator='cpu',
-                     gpus=[1],
+                     gpus=[0],
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
                      log_every_n_steps=100,
                      logger=logger,
+    #progress_bar_refresh_rate=0,
 )
 # train
 trainer.fit(model, train_loader, val_loader)
