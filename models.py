@@ -13,7 +13,7 @@ import numpy as np
 class Conv3DModel(pl.LightningModule):
     
     def __init__(self,
-                 inputShape: int,
+                 inputShape: Tuple[int, int, int, int],
                  learning_rate: float = 1e-3,
                  use_batchnorm: bool = False,
                  use_dropout: bool = False,
@@ -43,15 +43,26 @@ class Conv3DModel(pl.LightningModule):
         if self.use_dropout:
             self.drop=nn.Dropout(p=self.dropout_prob_linear)
         
-    def set_conv_block(self, in_c: int, out_c: int, stride: int) -> torch.nn.Sequential:
+    def set_conv_block(self, 
+                       in_shape: Tuple[int, int, int, int],
+                       out_c: int,
+                       conv_stride: int) -> torch.nn.Sequential:
+        '''
+        Convolution bulding block
+        
+        Inputs:
+            - in_shape: input shape
+            - out_c: number of output channels
+            - conv_stride: convolution operation stride
+        '''
         layers = []
         if self.use_batchnorm:
-            layers.append(nn.BatchNorm3d(in_c[0]))
+            layers.append(nn.BatchNorm3d(in_shape[0]))
         kernel_size = 6
         padding = 0
-        layers.append(nn.Conv3d(in_c[0], out_c, kernel_size=kernel_size, stride=stride, padding=padding))
+        layers.append(nn.Conv3d(in_shape[0], out_c, kernel_size=kernel_size, stride=conv_stride, padding=padding))
         # Based on floor((W−F+2P)/S)+1, W = input size, F=kernel/filter size, P=padding
-        outputSize = np.floor((np.array(in_c[1:])-kernel_size+2*padding)/stride)+1
+        outputSize = np.floor((np.array(in_shape[1:])-kernel_size+2*padding)/conv_stride)+1
         layers.append(self.relu)
 
         # Now let's do it again for max pool
