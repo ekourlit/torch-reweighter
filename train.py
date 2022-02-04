@@ -48,7 +48,7 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/atlasfs02/a/users/ekourlitis/ILDCaloSim/e-_large/partial/', 
+dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', 
                          BATCH_SIZE,
                          transform = Scale())
 
