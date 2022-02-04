@@ -1,11 +1,12 @@
 import pdb
 import argparse
+from operator import itemgetter
 import torch
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from models import Conv3DModel
-from data import CellsDataset
+from data import CellsDataset, Scale
 
 #################################################
 
@@ -24,9 +25,9 @@ fix_randomness(42, False)
 parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-s', '--save', action='store_true', dest='save', default=False, help='Save the trained model.')
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
-parser.add_argument('-m', '--modelName', type=str, default='conv3d_large2_1GPU', help='Name of model.')
-parser.add_argument('--stride', type=int, default=1, help='Stride of filter')
-parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
+parser.add_argument('-m', '--modelName', type=str, default='conv3d', help='Name of model.')
+parser.add_argument('--stride', type=int, default=1, help='Stride of filter.')
+parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size.') #128 is better for atlasgpu
 opts = parser.parse_args()
 save_model = opts.save
 
@@ -40,15 +41,16 @@ MODELNAME = opts.modelName+f'_stride{opts.stride}'+batchNormStr
 BATCH_SIZE = opts.batchSize
 
 NUM_WORKERS = 8
-EPOCHS = 50
+EPOCHS = 100
 if save_model:
     SAVEPATH = 'models/'
     print("Trained model will be saved at", SAVEPATH)
-
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/', BATCH_SIZE)
+dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', 
+                         BATCH_SIZE,
+                         transform = Scale())
 
 # number of instances/examples
 instances = len(dataset_t)
@@ -83,24 +85,23 @@ val_loader      = DataLoader(ds_val,
                              num_workers=NUM_WORKERS)
 
 #################################################
-'''
-# get some random training images
-dataiter = iter(train_loader)
-images, labels = dataiter.next()
-pdb.set_trace()
-'''
+
+# get some random training layers
+# dataiter = iter(train_loader)
+# layers, labels = dataiter.next()
+# pdb.set_trace()
+
 #################################################
 
 inputShape = next(iter(train_loader))[0].numpy().shape[1:]
-print("Shape of input:",inputShape)
+print("Shape of input:", inputShape)
 
 # init model
 model = Conv3DModel(inputShape,
                     learning_rate=5e-4,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
-                    stride=opts.stride,
-                    )
+                    stride=opts.stride)
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
@@ -110,7 +111,7 @@ trainer = pl.Trainer(#accelerator='cpu',
                      gpus=[0],
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
-                     log_every_n_steps=100,
+                     log_every_n_steps=1000,
                      logger=logger,
     #progress_bar_refresh_rate=0,
 )
