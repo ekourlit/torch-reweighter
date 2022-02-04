@@ -85,6 +85,7 @@ class Conv3DModel(pl.LightningModule):
         out = self.relu(out)
         if self.use_dropout:
             out = self.drop(out)
+
         out = self.fc4(out)
         
         return out
