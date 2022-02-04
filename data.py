@@ -7,6 +7,7 @@ from torch import FloatTensor
 from typing import Tuple
 from math import floor
 import torch
+from variables import *
 
 #################################################
 
@@ -55,6 +56,19 @@ class Scale(object):
                 scale == 1.0
             ilayers = torch.mul(ilayers, 1.0 / scale)
             layers[batch_idx] = ilayers
+        
+        return layers
+
+class HighLevelAugmentation(object):
+    '''
+    Transform to calculate high-level variables from layers
+    '''
+
+    def __call__(self, layers):
+        # layers: B x C x H x W x D
+        for batch_idx, ilayers in enumerate(layers):
+            edep = calculate_event_energy(ilayers)
+            # not sure where to put that...
         
         return layers
 
