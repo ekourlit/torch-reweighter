@@ -33,11 +33,13 @@ save_model = opts.save
 
 #################################################
 # configuration
+
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
 MODELNAME = opts.modelName+f'_stride{opts.stride}'+batchNormStr
 BATCH_SIZE = opts.batchSize
+
 NUM_WORKERS = 8
 EPOCHS = 100
 if save_model:
