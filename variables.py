@@ -1,25 +1,16 @@
+from numba import njit
+# in general layers shape would be: B x C x H x W x D
+
 def calculate_event_energy(layers):
     '''
     Event energy deposit
     '''
-
-    tot_events = len(layers)
-    event_energy_deposit = np.zeros(tot_events)
-    for event_num in range(tot_events):
-        event = layers[event_num, :, :, :]
-        energies_per_layer = np.zeros(30)
-        for i in range(30):
-            ilayer = event[i, :, :]
-            layer_total_energy = np.sum(ilayer)
-            energies_per_layer[i] = layer_total_energy
-
-        event_energy_deposit[event_num] = np.sum(energies_per_layer)
-    
-    return event_energy_deposit
+    return torch.sum(layers)
 
 def calculate_non_zero(layers):
     '''
     Event sparcity, i.e non-zero portion
+    WIP!
     '''
 
     events = len(layers)
@@ -36,6 +27,7 @@ def calculate_non_zero(layers):
 def calculate_longitudinal_centroid(layers):
     '''
     Event longitudinal centrod in the sense of how shower evolves, i.e. y-axix or array rows (axis=0)
+    WIP!
     '''
 
     tot_events = len(layers)
@@ -66,6 +58,7 @@ def calculate_longitudinal_centroid(layers):
 def calculate_r2(layers):
     '''
     shower shape (r2)
+    WIP!
     '''
     tot_events = layers.shape[0]
     event_r2 = np.zeros(tot_events)
@@ -100,6 +93,7 @@ def calculate_r2(layers):
 def calculate_Rz(layers):
     '''
     Rz - layer cell's ratio
+    WIP!
     '''
     event_Rz = []
     # loop over variant events
@@ -122,6 +116,7 @@ def calculate_Rz(layers):
 def calculate_Rx(layers):
     '''
     Rx - layer cell's ratio
+    WIP!
     '''
     event_Rx = []
     # loop over variant events
