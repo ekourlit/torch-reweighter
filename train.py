@@ -48,7 +48,7 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', 
+dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/all/', 
                          BATCH_SIZE,
                          transform = Scale())
 
@@ -57,7 +57,7 @@ instances = len(dataset_t)
 
 # split train/val
 # the rest will be validation
-train_ratio = 0.95
+train_ratio = 0.99
 train_instances = int(train_ratio*instances)
 val_instances = int((1-train_ratio)*instances)
 
