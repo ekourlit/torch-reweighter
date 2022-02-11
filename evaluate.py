@@ -53,17 +53,22 @@ model_path = opts.model
 BATCH_SIZE = opts.batchSize
 NUM_WORKERS = 2
 
+
+batchNormStr = ''
+if opts.batchNorm:
+    batchNormStr = '_batchNorm'
+suffix = f'_stride{opts.stride}'+batchNormStr
 #################################################
 
 # load test dataset
 #dataset = get_HDF5_dataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-95.hdf5')
-dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-95.hdf5')
+dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC10-95.hdf5')
 # load train dataset
 #dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-30.hdf5')
 dataset_t = get_tensor_dataset(dataset)
 # load nominal dataset (just for plotting)
 #nom_dataset = get_HDF5_dataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
-nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
+nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC01-30.hdf5')
 
 # get the labels
 labels = np.array(list(map(lambda x: x[1].numpy(), dataset_t))).reshape(-1)
@@ -125,7 +130,7 @@ print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))
 
 # plotting
 plots = Plotter(nom_dataset, dataset, weights)
-plots.plot_event_edep()
+plots.plot_event_edep_WH(suffix=suffix)
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
-plot_weights(weights)
+plot_weights(weights, suffix=suffix)

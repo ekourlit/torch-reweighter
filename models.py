@@ -39,6 +39,7 @@ class Conv3DModel(pl.LightningModule):
         # WH: see below how to calculate it
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 512)
+        
         self.fc4 = nn.Linear(512, self.num_classes)
         if self.use_dropout:
             self.drop=nn.Dropout(p=self.dropout_prob_linear)
@@ -85,6 +86,7 @@ class Conv3DModel(pl.LightningModule):
         out = self.relu(out)
         if self.use_dropout:
             out = self.drop(out)
+            
         out = self.fc4(out)
         
         return out
