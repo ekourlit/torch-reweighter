@@ -4,9 +4,10 @@ import numpy as np
 import h5py
 from torch.utils.data import TensorDataset, Dataset
 from torch import FloatTensor
-import torchvision.transforms as transforms
 from typing import Tuple
 from math import floor
+import torch
+from variables import *
 
 #################################################
 
@@ -36,20 +37,52 @@ def get_tensor_dataset(dataset: h5py._hl.group.Group, nominal: bool = False) -> 
     # create torch dataset
     dataset_t = TensorDataset(layers_t, labels_t)
 
-    # # normalize to [-1, 1] -> that's wrong...
-    # dataset_t.transform = transforms.Compose(
-    #     [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    # need to normalize to [0, 1]...
 
     return dataset_t
 
+class Scale(object):
+    '''
+    Transform scale Tensors to [0,1] i.e. divide by max
+    code can be vectorized for faster execution
+    example: https://discuss.pytorch.org/t/using-scikit-learns-scalers-for-torchvision/53455/6
+    '''
+
+    def __call__(self, layers):
+        # layers: B x C x H x W x D
+        for batch_idx, ilayers in enumerate(layers):
+            scale = torch.max(ilayers)
+            if scale == 0.0:
+                scale == 1.0
+            ilayers = torch.mul(ilayers, 1.0 / scale)
+            layers[batch_idx] = ilayers
+        
+        return layers
+
+class HighLevelAugmentation(object):
+    '''
+    Transform to calculate high-level variables from layers
+    '''
+
+    def __call__(self, layers):
+        # layers: B x C x H x W x D
+        for batch_idx, ilayers in enumerate(layers):
+            edep = calculate_event_energy(ilayers)
+            # not sure where to put that...
+        
+        return layers
+
 class CellsDataset(Dataset):
-    # TODO: need to add [0,1] normalization
-    # currently using BatchNorm in the first layer of the model -> slow training
+    '''
+    Custom Dataset class for our data.
+    Data are given in multiple h5py files.
+    During training retrieve data lazily, i.e. when a batch is requested, open a file and fetch one.
+    '''
 
     def __init__(self, 
                  path: str,
                  batch_size: int,
-                 transform: bool = None,
+                 transform: object = None,
                  nom_key: str = 'RC01', 
                  alt_key: str = 'RC10') -> None:
 
@@ -115,16 +148,19 @@ class CellsDataset(Dataset):
             layers = dataset['layers'][instance_idx:instance_idx+self.batch_size]
             energy = dataset['energy'][instance_idx:instance_idx+self.batch_size]
             # reshape layers to add a dummy channel dimension
+            # torch image: B x C x H x W x D
             layers = layers.reshape(-1, 1, 30, 30, 30)
             if not isNominal:
-                label = np.ones(energy.shape)
+                labels = np.ones(energy.shape)
             else:
-                label = np.zeros(energy.shape)
-            # convert to tensors
+                labels = np.zeros(energy.shape)
+            
+            # convert to Tensors
             layers = FloatTensor(layers)
-            label = FloatTensor(label)
+            labels = FloatTensor(labels)
+            
             # apply any extra transform
             if self.transform:
                 layers = self.transform(layers)
 
-            return layers, label
+            return layers, labels
