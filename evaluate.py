@@ -54,6 +54,11 @@ model_stride = int(model_path.split('.')[0].split('stride')[-1])
 BATCH_SIZE = opts.batchSize
 NUM_WORKERS = 2
 
+
+batchNormStr = ''
+if opts.batchNorm:
+    batchNormStr = '_batchNorm'
+suffix = f'_stride{opts.stride}'+batchNormStr
 #################################################
 
 # load test dataset
@@ -118,7 +123,7 @@ print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))
 
 # plotting
 plots = Plotter(nom_dataset, dataset, weights)
-plots.plot_event_edep()
+plots.plot_event_edep_WH(suffix=suffix)
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
-plot_weights(weights)
+plot_weights(weights, suffix=suffix)

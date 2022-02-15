@@ -4,7 +4,7 @@ from operator import itemgetter
 import torch
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from models import Conv3DModel
 from data import CellsDataset, Scale
 
@@ -105,6 +105,7 @@ model = Conv3DModel(inputShape,
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
+csvLogger = CSVLogger("logs/", name=MODELNAME+'_csv')
 
 # init a trainer
 trainer = pl.Trainer(#accelerator='cpu',
@@ -112,7 +113,7 @@ trainer = pl.Trainer(#accelerator='cpu',
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
                      log_every_n_steps=1000,
-                     logger=logger,
+                     logger=[logger, csvLogger],
     #progress_bar_refresh_rate=0,
 )
 # train

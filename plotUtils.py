@@ -54,7 +54,7 @@ class Plotter:
         
         return nonzero_portions
 
-    def plot_event_edep_WH(self):
+    def plot_event_edep_WH(self, suffix:str=''):
         '''
         Distribution of event energy deposit
         '''
@@ -155,12 +155,12 @@ class Plotter:
         ax2.grid(which='major', axis='y')
         fig.subplots_adjust(hspace=0.1)
         fig.canvas.draw()
-        plt.savefig(self.saveDir+'/edep.png', bbox_inches='tight')
-        plt.savefig(self.saveDir+'/edep.svg', bbox_inches='tight')
-        plt.savefig(self.saveDir+'/edep.pdf', bbox_inches='tight')
+        plt.savefig(self.saveDir+f'/edep{suffix}.png', bbox_inches='tight')
+        plt.savefig(self.saveDir+f'/edep{suffix}.svg', bbox_inches='tight')
+        plt.savefig(self.saveDir+f'/edep{suffix}.pdf', bbox_inches='tight')
 
 
-    def plot_event_edep(self):
+    def plot_event_edep(self, suffix:str =''):
         '''
         Distribution of event energy deposit
         '''
@@ -245,9 +245,9 @@ class Plotter:
         # grid
         ax2.grid(which='major', axis='y')
         
-        plt.savefig(self.saveDir+'/edep.png', bbox_inches='tight')
+        plt.savefig(self.saveDir+f'/edep{suffix}.png', bbox_inches='tight')
         
-    def plot_event_sparcity(self):
+    def plot_event_sparcity(self, suffix:str =''):
         '''
         Distribution of event cell sparcity
         vangelis: something is going wrong with the bottom panel
@@ -313,7 +313,7 @@ class Plotter:
         ax2.set_ylabel('Ratio (Alt./Nom.)')
         ax2.set_xlabel('Cell Sparcity')
         
-        plt.savefig(self.saveDir+'/cell_sparcity.png', bbox_inches='tight')
+        plt.savefig(self.saveDir+f'/cell_sparcity{suffix}.png', bbox_inches='tight')
 
 def plot_calibration_curve(labels, probs: np.ndarray) -> None:
     ''' 
@@ -342,7 +342,7 @@ def plot_calibration_curve(labels, probs: np.ndarray) -> None:
     system('mkdir -p '+saveDir)
     plt.savefig(saveDir+'/calibration_curve.png', bbox_inches='tight')
 
-def plot_weights(weights: np.ndarray) -> None:
+def plot_weights(weights: np.ndarray, suffix: str = '') -> None:
     ''' 
     Plot weights distribution
     '''
@@ -358,4 +358,4 @@ def plot_weights(weights: np.ndarray) -> None:
 
     saveDir = 'plots/'+today
     system('mkdir -p '+saveDir)
-    plt.savefig(saveDir+'/weights.png', bbox_inches='tight')
+    plt.savefig(saveDir+f'/weights{suffix}.png', bbox_inches='tight')
