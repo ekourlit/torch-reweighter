@@ -250,9 +250,12 @@ class Conv3DModel(pl.LightningModule):
         x, _ = batch
         logits = self(x)
         probs = torch.sigmoid(logits)
-        weights = probs / (1 - probs)
+        # clamping very small value to 1e-9 to avoid zero division
+        probs = torch.clamp(probs, min=1.0e-9)
+        r_hat = (1 - probs) / probs # p_{1}(x) / p_{0}(x) (??) # from: https://github.com/sjiggins/carl-torch/blob/master/ml/evaluate.py#L38
+        weights = r_hat # carl-torch inverts this but we don't as we want to re-weight the anternative (p_{1}) -> original (p_{0}). Ref: https://github.com/sjiggins/carl-torch/blob/master/evaluate.py#L67
 
-        return probs, 1/weights
+        return probs, weights
 
 #################################################
 
