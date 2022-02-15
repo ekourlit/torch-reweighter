@@ -1,4 +1,5 @@
 from numba import njit
+import torch
 # in general layers shape would be: B x C x H x W x D
 
 def calculate_event_energy(layers):
