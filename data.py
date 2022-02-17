@@ -59,19 +59,6 @@ class Scale(object):
         
         return layers
 
-class HighLevelAugmentation(object):
-    '''
-    Transform to calculate high-level variables from layers
-    '''
-
-    def __call__(self, layers):
-        # layers: B x C x H x W x D
-        for batch_idx, ilayers in enumerate(layers):
-            edep = calculate_event_energy(ilayers)
-            # not sure where to put that...
-        
-        return layers
-
 class CellsDataset(Dataset):
     '''
     Custom Dataset class for our data.
@@ -163,4 +150,10 @@ class CellsDataset(Dataset):
             if self.transform:
                 layers = self.transform(layers)
 
-            return layers, labels
+            # add extra features
+            # VK: this is too hard-coded structure, we need flexibility to add/remove features
+            edep = calculate_event_energy(layers)
+            sparcity = calculate_non_zero(layers)
+            features = torch.stack((edep,sparcity), dim=1)
+
+            return layers, features, labels

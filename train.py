@@ -1,6 +1,5 @@
 import pdb
 import argparse
-from operator import itemgetter
 import torch
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
@@ -41,14 +40,14 @@ MODELNAME = opts.modelName+f'_stride{opts.stride}'+batchNormStr
 BATCH_SIZE = opts.batchSize
 
 NUM_WORKERS = 8
-EPOCHS = 100
+EPOCHS = 2
 if save_model:
     SAVEPATH = 'models/'
     print("Trained model will be saved at", SAVEPATH)
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/all/', 
+dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/partial/', 
                          BATCH_SIZE,
                          transform = Scale())
 
@@ -85,19 +84,22 @@ val_loader      = DataLoader(ds_val,
                              num_workers=NUM_WORKERS)
 
 #################################################
-
+'''
 # get some random training layers
-# dataiter = iter(train_loader)
-# layers, labels = dataiter.next()
-# pdb.set_trace()
-
+dataiter = iter(train_loader)
+images, features, labels = dataiter.next()
+pdb.set_trace()
+'''
 #################################################
 
 inputShape = next(iter(train_loader))[0].numpy().shape[1:]
-print("Shape of input:", inputShape)
+print("Shape of input image:", inputShape)
+num_features = next(iter(train_loader))[1].numpy().shape[1:][0]
+print("Number of high-level (global) features:", num_features)
 
 # init model
 model = Conv3DModel(inputShape,
+                    num_features,
                     learning_rate=5e-4,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,

@@ -14,6 +14,7 @@ class Conv3DModel(pl.LightningModule):
     
     def __init__(self,
                  inputShape: Tuple[int, int, int, int],
+                 num_features: int,
                  learning_rate: float = 1e-3,
                  use_batchnorm: bool = False,
                  use_dropout: bool = False,
@@ -41,8 +42,7 @@ class Conv3DModel(pl.LightningModule):
 
         outSize, self.conv_layer1 = self.set_conv_block(inputShape, outChannels, stride)
         # self.conv_layer2 = self.set_conv_block(128, 128)
-        self.fc_conv = nn.Linear(outSize, self.hidden_layers_in_out[0][0]) # I still don't know how to calculate the first argument number
-        # WH: see below how to calculate it
+        self.fc_conv = nn.Linear(outSize+num_features, self.hidden_layers_in_out[0][0])
         self.fcs = self.set_fc_hidden_block(self.hidden_layers_in_out)
         self.fc_out = nn.Linear(self.hidden_layers_in_out[-1][-1], self.num_classes)
         
@@ -98,17 +98,17 @@ class Conv3DModel(pl.LightningModule):
 
         return outputSize, conv_block
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.conv_layer1(x)
+    def forward(self, image, features) -> torch.Tensor:
+        out = self.conv_layer1(image)
         # out = self.conv_layer2(out)
         out = out.view(out.size(0), -1) # flatten
+        # concatenate conv output and global features
+        out = torch.cat((out, features), dim=1)
         out = self.fc_conv(out)
         out = self.relu(out)
         if self.use_dropout:
             out = self.drop(out)
-        
         out = self.fcs(out)
-            
         out = self.fc_out(out)
         
         return out
@@ -122,8 +122,7 @@ class Conv3DModel(pl.LightningModule):
             optimizer = torch.optim.Adam(self.parameters(),
                                          lr=self.learning_rate)
 
-    
-        return optimizer
+            return optimizer
 
     def calculate_metrics(self, logits: torch.Tensor, y_true: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # calculate predictions
@@ -160,8 +159,8 @@ class Conv3DModel(pl.LightningModule):
         return out_dict
 
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        x, y = batch
-        logits = self(x)
+        x, f, y = batch
+        logits = self(x, f)
         loss = F.binary_cross_entropy_with_logits(logits, y)
         # metrics
         accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
@@ -175,8 +174,8 @@ class Conv3DModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int):
-        x, y = batch
-        logits = self(x)
+        x, f, y = batch
+        logits = self(x, f)
         loss = F.binary_cross_entropy_with_logits(logits, y)
         # metrics
         accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
@@ -261,8 +260,8 @@ class Conv3DModel(pl.LightningModule):
         self.logger[0].experiment.add_image('low_score_img', self.projection_over_cols(worst_img), dataformats='HW')
 
     def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        x, _ = batch
-        logits = self(x)
+        x, f, _ = batch
+        logits = self(x, f)
         probs = torch.sigmoid(logits)
         # clamping very small value to 1e-9 to avoid zero division
         probs = torch.clamp(probs, min=1.0e-9)
