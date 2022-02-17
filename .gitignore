@@ -5,3 +5,4 @@ plots/
 __pycache__/
 .vscode
 /newTrain.py
+*_csv/
