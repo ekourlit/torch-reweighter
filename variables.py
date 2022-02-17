@@ -6,24 +6,18 @@ def calculate_event_energy(layers):
     '''
     Event energy deposit
     '''
-    return torch.sum(layers)
+    return torch.sum( layers, dim=tuple(d for d in range(1,len(layers.size()))) )
 
 def calculate_non_zero(layers):
     '''
     Event sparcity, i.e non-zero portion
-    WIP!
     '''
 
-    events = len(layers)
-    total_cells = 30*30*30
-    nonzero_portions = np.zeros(events)
-    for event_num in range(events):
-        event_layers = layers[event_num, :, :, :]
-        nonzero_elements = len(np.nonzero(event_layers)[0])
-        nonzero_portion = nonzero_elements/total_cells
-        nonzero_portions[event_num] = nonzero_portion
+    sparcities = torch.zeros(layers.size()[0])
+    for batch_idx, ilayer in enumerate(layers):
+        sparcities[batch_idx] = torch.nonzero(ilayer).size()[0] / (30*30*30)
         
-    return nonzero_portions
+    return sparcities
 
 def calculate_longitudinal_centroid(layers):
     '''
