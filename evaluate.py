@@ -46,6 +46,7 @@ parser.add_argument('--stride', type=int, default=1, help='Stride of filter')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
 opts = parser.parse_args()
 model_path = opts.model
+model_stride = int(model_path.split('.')[0].split('stride')[-1])
 
 #################################################
 # configuration
@@ -53,17 +54,18 @@ model_path = opts.model
 BATCH_SIZE = opts.batchSize
 NUM_WORKERS = 2
 
+
+batchNormStr = ''
+if opts.batchNorm:
+    batchNormStr = '_batchNorm'
+suffix = f'_stride{opts.stride}'+batchNormStr
 #################################################
 
 # load test dataset
-#dataset = get_HDF5_dataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-95.hdf5')
-dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-95.hdf5')
-# load train dataset
-#dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC10-30.hdf5')
+dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC10-95.hdf5')
 dataset_t = get_tensor_dataset(dataset)
 # load nominal dataset (just for plotting)
-#nom_dataset = get_HDF5_dataset('/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
-nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/showers-10kE10GeV-RC01-30.hdf5')
+nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC01-30.hdf5')
 
 # get the labels
 labels = np.array(list(map(lambda x: x[1].numpy(), dataset_t))).reshape(-1)
@@ -94,7 +96,7 @@ print("Shape of input:",inputShape)
 model = Conv3DModel(inputShape,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
-                    stride=opts.stride,
+                    stride=model_stride,
                     )
 
 model.load_state_dict(torch.load(model_path))
@@ -110,14 +112,10 @@ result_tensor = trainer.predict(model,
                                 return_predictions=True)
 
 probs = get_flat_array(result_tensor, 0)
-weights = 1./get_flat_array(result_tensor, 1)
-# convert any inf to 0
-# because score=1 → weight=inf
-# score=1 means alternative so I can't re-weight 
-# I have lost info on how much it looks like to nominal
-weights[np.isinf(weights) == True] = 0.0
+weights = get_flat_array(result_tensor, 1)
+# clip on maxWeight
 maxWeight = 500
-weights[weights > maxWeight] = 0#maxWeight
+weights[weights > maxWeight] = 0
 
 # how many zeros?
 zero_counter = np.count_nonzero(weights==0)
@@ -125,7 +123,7 @@ print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))
 
 # plotting
 plots = Plotter(nom_dataset, dataset, weights)
-plots.plot_event_edep()
+plots.plot_event_edep_WH(suffix=suffix)
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
-plot_weights(weights)
+plot_weights(weights, suffix=suffix)

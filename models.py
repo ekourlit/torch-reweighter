@@ -31,22 +31,44 @@ class Conv3DModel(pl.LightningModule):
         self.use_batchnorm = use_batchnorm
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
+        self.hidden_layers_in_out = [(512,512), (512,512)];
+
+        self.actFunc = nn.LeakyReLU # WH: this is so that we can pass whatever function we may wants
+        self.relu = self.actFunc()
         
-        self.relu = nn.LeakyReLU()
-        outSize, self.conv_layer1 = self.set_conv_block(inputShape, outChannels, stride)
-        # self.conv_layer2 = self.set_conv_block(128, 128)
-        self.fc1 = nn.Linear(outSize, 512) # I still don't know how to calculate the first argument number
-        # WH: see below how to calculate it
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 512)
-        self.fc4 = nn.Linear(512, self.num_classes)
         if self.use_dropout:
             self.drop=nn.Dropout(p=self.dropout_prob_linear)
+
+        outSize, self.conv_layer1 = self.set_conv_block(inputShape, outChannels, stride)
+        # self.conv_layer2 = self.set_conv_block(128, 128)
+        self.fc_conv = nn.Linear(outSize, self.hidden_layers_in_out[0][0]) # I still don't know how to calculate the first argument number
+        # WH: see below how to calculate it
+        self.fcs = self.set_fc_hidden_block(self.hidden_layers_in_out)
+        self.fc_out = nn.Linear(self.hidden_layers_in_out[-1][-1], self.num_classes)
         
+    def set_fc_hidden_block(self,
+                            hidden_layers_in_out,
+                            ) -> torch.nn.Sequential:
+        hidden_layers = []
+        for (inNodes, outNodes) in hidden_layers_in_out:
+            hidden_layers.append(nn.Linear(inNodes,outNodes))
+            hidden_layers.append(self.actFunc())
+            if self.use_dropout:
+                hidden_layers.append(nn.Dropout(p=self.dropout_prob_linear))
+        fc_block = nn.Sequential(*hidden_layers)
+        
+        return fc_block
+
     def set_conv_block(self, 
                        in_shape: Tuple[int, int, int, int],
                        out_c: int,
-                       conv_stride: int) -> torch.nn.Sequential:
+                       conv_stride: int,
+                       conv_kernel_size: int = 6,
+                       conv_padding: int = 0,
+                       max_stride: int = 2,
+                       max_kernel_size: int = 2,
+                       max_padding: int = 0,
+                       ) -> torch.nn.Sequential:
         '''
         Convolution bulding block
         
@@ -58,19 +80,15 @@ class Conv3DModel(pl.LightningModule):
         layers = []
         if self.use_batchnorm:
             layers.append(nn.BatchNorm3d(in_shape[0]))
-        kernel_size = 6
-        padding = 0
-        layers.append(nn.Conv3d(in_shape[0], out_c, kernel_size=kernel_size, stride=conv_stride, padding=padding))
+       
+        layers.append(nn.Conv3d(in_shape[0], out_c, kernel_size=conv_kernel_size, stride=conv_stride, padding=conv_padding))
         # Based on floor((W−F+2P)/S)+1, W = input size, F=kernel/filter size, P=padding
-        outputSize = np.floor((np.array(in_shape[1:])-kernel_size+2*padding)/conv_stride)+1
+        outputSize = np.floor((np.array(in_shape[1:])-conv_kernel_size+2*conv_padding)/conv_stride)+1
         layers.append(self.relu)
 
         # Now let's do it again for max pool
-        kernel_size = 2
-        stride = 2
-        padding = 0
-        layers.append(nn.MaxPool3d(kernel_size=kernel_size, padding=0,  stride=stride))
-        outputSize = np.floor((outputSize-kernel_size+2*padding)/stride)+1
+        layers.append(nn.MaxPool3d(kernel_size=max_kernel_size, padding=max_padding,  stride=max_stride))
+        outputSize = np.floor((outputSize-max_kernel_size+2*max_padding)/max_stride)+1
         outputSize = int(np.prod(outputSize)*out_c)
         
         if self.use_dropout:
@@ -84,20 +102,14 @@ class Conv3DModel(pl.LightningModule):
         out = self.conv_layer1(x)
         # out = self.conv_layer2(out)
         out = out.view(out.size(0), -1) # flatten
-        out = self.fc1(out)
+        out = self.fc_conv(out)
         out = self.relu(out)
         if self.use_dropout:
             out = self.drop(out)
-        out = self.fc2(out)
-        out = self.relu(out)
-        if self.use_dropout:
-            out = self.drop(out)
-        out = self.fc3(out)
-        out = self.relu(out)
-        if self.use_dropout:
-            out = self.drop(out)
-
-        out = self.fc4(out)
+            
+        out = self.fcs(out)
+            
+        out = self.fc_out(out)
         
         return out
 
@@ -244,16 +256,20 @@ class Conv3DModel(pl.LightningModule):
         worst_img = val_step_outputs[min_prob_idx]['dict']['worst'][1]
 
         # log images
-        self.logger.experiment.add_image('high_score_img', self.projection_over_cols(best_img), dataformats='HW')
-        self.logger.experiment.add_image('low_score_img', self.projection_over_cols(worst_img), dataformats='HW')
+        # The first logger is expected to be the default Tensorboard logger.
+        self.logger[0].experiment.add_image('high_score_img', self.projection_over_cols(best_img), dataformats='HW')
+        self.logger[0].experiment.add_image('low_score_img', self.projection_over_cols(worst_img), dataformats='HW')
 
     def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, _ = batch
         logits = self(x)
         probs = torch.sigmoid(logits)
-        weights = probs / (1 - probs)
+        # clamping very small value to 1e-9 to avoid zero division
+        probs = torch.clamp(probs, min=1.0e-9)
+        r_hat = (1 - probs) / probs # p_{1}(x) / p_{0}(x) (??) # from: https://github.com/sjiggins/carl-torch/blob/master/ml/evaluate.py#L38
+        weights = r_hat # carl-torch inverts this but we don't as we want to re-weight the anternative (p_{1}) -> original (p_{0}). Ref: https://github.com/sjiggins/carl-torch/blob/master/evaluate.py#L67
 
-        return probs, 1/weights
+        return probs, weights
 
 #################################################
 
