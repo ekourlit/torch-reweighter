@@ -15,6 +15,8 @@ plt.style.use('default')
 font = {'size':14}
 matplotlib.rc('font', **font)
 
+import pandas as pd
+
 class Plotter:
     """
     Class to create plots. 
@@ -112,8 +114,8 @@ class Plotter:
         font = 8
         # ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
         # ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
-        # ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
-        # ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
 
         ax1.legend(custom_lines, labels, loc=2)
         #ax1.set_ylabel('Events')
@@ -359,3 +361,42 @@ def plot_weights(weights: np.ndarray, suffix: str = '') -> None:
     saveDir = 'plots/'+today
     system('mkdir -p '+saveDir)
     plt.savefig(saveDir+f'/weights{suffix}.png', bbox_inches='tight')
+    plt.savefig(saveDir+f'/weights{suffix}.pdf', bbox_inches='tight')
+    plt.savefig(saveDir+f'/weights{suffix}.svg', bbox_inches='tight')
+
+def plot_metrics(csvLoggerPath: str, suffix: str = '') -> None:
+    ''' 
+    Plot metrics such as loss and accuracy.
+    '''
+    print("Plotter\t::\tPlotting losses")
+
+    # Load CSV file from logger
+    metrics = pd.read_csv(csvLoggerPath)
+    
+    plt.figure(figsize=(5 , 5), dpi=200)
+    trainInfo = metrics[metrics['train_loss'].notnull()]
+    valInfo = metrics[metrics['val_loss'].notnull()]
+    plt.plot(trainInfo['step'], trainInfo['train_loss'], label='Train loss')
+    plt.plot(valInfo['step'], valInfo['val_loss'], label='Val loss')
+    plt.xlabel("Step")
+    plt.ylabel("Loss")
+    plt.legend()
+    saveDir = 'plots/'+today
+    system('mkdir -p '+saveDir)
+    plt.savefig(saveDir+f'/loss{suffix}.png', bbox_inches='tight')
+    plt.savefig(saveDir+f'/loss{suffix}.pdf', bbox_inches='tight')
+    plt.savefig(saveDir+f'/loss{suffix}.svg', bbox_inches='tight')
+
+    plt.figure(figsize=(5 , 5), dpi=200)
+    trainInfo = metrics[metrics['train_accuracy'].notnull()]
+    valInfo = metrics[metrics['val_accuracy'].notnull()]
+    plt.plot(trainInfo['epoch'], trainInfo['train_accuracy'], label='Train loss')
+    plt.plot(valInfo['epoch'], valInfo['val_accuracy'], label='Val loss')
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    saveDir = 'plots/'+today
+    system('mkdir -p '+saveDir)
+    plt.savefig(saveDir+f'/accuracy{suffix}.png', bbox_inches='tight')
+    plt.savefig(saveDir+f'/accuracy{suffix}.pdf', bbox_inches='tight')
+    plt.savefig(saveDir+f'/accuracy{suffix}.svg', bbox_inches='tight')

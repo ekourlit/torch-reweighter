@@ -2,7 +2,7 @@ import os
 import pdb
 import argparse
 from matplotlib.pyplot import plot
-from plotUtils import Plotter, plot_calibration_curve, plot_weights
+from plotUtils import *#Plotter, plot_calibration_curve, plot_weights
 import random
 import numpy as np
 import torch
@@ -44,6 +44,8 @@ parser.add_argument('-m', '--model', action='store', type=str, dest='model', req
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
 parser.add_argument('--stride', type=int, default=1, help='Stride of filter')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
+parser.add_argument('-l', '--loggerPath',  type=str, default='', help='Path to CSV logger output. This is needed to plot metrics vs step/epoch.') 
+
 opts = parser.parse_args()
 model_path = opts.model
 model_stride = int(model_path.split('.')[0].split('stride')[-1])
@@ -127,3 +129,7 @@ plots.plot_event_edep_WH(suffix=suffix)
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
 plot_weights(weights, suffix=suffix)
+if opts.loggerPath != '':
+    plot_metrics(opts.loggerPath, suffix=suffix)
+else:
+    print('Not plotting metrics (loss and accuracy) because no logger path was specified.')
