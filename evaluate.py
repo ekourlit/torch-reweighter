@@ -1,8 +1,8 @@
-import os
+import os, re
 import pdb
 import argparse
 from matplotlib.pyplot import plot
-from plotUtils import Plotter, plot_calibration_curve, plot_weights
+from plotUtils import *#Plotter, plot_calibration_curve, plot_weights
 import random
 import numpy as np
 import torch
@@ -42,19 +42,19 @@ def get_flat_array(result_tensor, idx):
 parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-m', '--model', action='store', type=str, dest='model', required=True, help='The model used for evaluation.')
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
-parser.add_argument('--stride', type=int, default=1, help='Stride of filter')
+parser.add_argument('--stride', type=int, default=3, help='Stride of filter')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
+parser.add_argument('-l', '--logVersion',  type=str, default='version_0', help='Version of the log to use for plotting') 
+
 opts = parser.parse_args()
 model_path = opts.model
-model_stride = int(model_path.split('.')[0].split('stride')[-1])
 
 #################################################
 # configuration
 
 BATCH_SIZE = opts.batchSize
 NUM_WORKERS = 2
-
-
+MODELNAME=model_path.split('/')[-1].rstrip('.pt')
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
@@ -96,7 +96,8 @@ print("Shape of input:",inputShape)
 model = Conv3DModel(inputShape,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
-                    stride=model_stride,
+                    stride=opts.stride,
+                    hidden_layers_in_out=[(512,512), (512,512),(512,512), (512,512)]
                     )
 
 model.load_state_dict(torch.load(model_path))
@@ -126,4 +127,7 @@ plots = Plotter(nom_dataset, dataset, weights)
 plots.plot_event_edep_WH(suffix=suffix)
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
+csvLoggerPath = "logs/"+MODELNAME+'_csv/'+opts.logVersion+'/metrics.csv'
+print(csvLoggerPath)
 plot_weights(weights, suffix=suffix)
+plot_metrics(csvLoggerPath, suffix=suffix)

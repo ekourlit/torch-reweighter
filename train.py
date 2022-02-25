@@ -26,31 +26,36 @@ parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-s', '--save', action='store_true', dest='save', default=False, help='Save the trained model.')
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
 parser.add_argument('-m', '--modelName', type=str, default='conv3d', help='Name of model.')
-parser.add_argument('--stride', type=int, default=1, help='Stride of filter.')
+parser.add_argument('--stride', type=int, default=3, help='Stride of filter.')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size.') #128 is better for atlasgpu
+parser.add_argument('-e', '--epochs',  type=int, default=100, help='Max number of epochs to train for.') 
+
 opts = parser.parse_args()
 save_model = opts.save
 
 #################################################
 # configuration
+EPOCHS = opts.epochs
 
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
-MODELNAME = opts.modelName+f'_stride{opts.stride}'+batchNormStr
+MODELNAME = opts.modelName+f'_stride{opts.stride}_epochs{EPOCHS}'+batchNormStr
 BATCH_SIZE = opts.batchSize
 
 NUM_WORKERS = 8
-EPOCHS = 100
 if save_model:
     SAVEPATH = 'models/'
     print("Trained model will be saved at", SAVEPATH)
 #################################################
 
 # load data into custom Dataset
-dataset_t = CellsDataset('/data/ekourlitis/ILDCaloSim/e-_large/all/', 
+dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
+#dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/all/'
+dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
-                         transform = Scale())
+                         transform = Scale()
+                         )
 
 # number of instances/examples
 instances = len(dataset_t)
@@ -101,7 +106,8 @@ model = Conv3DModel(inputShape,
                     learning_rate=5e-4,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
-                    stride=opts.stride)
+                    stride=opts.stride,
+                    hidden_layers_in_out=[(512,512), (512,512)])
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
