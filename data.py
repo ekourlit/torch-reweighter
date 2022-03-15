@@ -87,7 +87,11 @@ class CellsDataset(Dataset):
                  alt_key: str = 'RC10') -> None:
 
         self.storage_path = path
-        self.files = os.listdir(self.storage_path)
+
+        self.files = []
+        for inFName in os.listdir(self.storage_path): 
+            if '.hdf' in inFName:
+                self.files.append(inFName)
         self.files.sort(key=self.count_sorter)
         self.batch_size = batch_size
         self.transform = transform
@@ -98,6 +102,7 @@ class CellsDataset(Dataset):
     
     def count_sorter(self, name: str) -> str:
         # e.g. showers-10kE10GeV-RC10-123.hdf5
+       
         num_tag = int(name.split('.')[0].split('-')[-1])
 
         return "{0:0=3d}".format(num_tag)
