@@ -29,6 +29,7 @@ parser.add_argument('-m', '--modelName', type=str, default='conv3d', help='Name 
 parser.add_argument('--stride', type=int, default=3, help='Stride of filter.')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size.') #128 is better for atlasgpu
 parser.add_argument('-e', '--epochs',  type=int, default=100, help='Max number of epochs to train for.') 
+parser.add_argument('-r', '--trainRatio',  type=float, default=0.9, help='Ratio between training and testing set. Default is 0.9.') 
 
 opts = parser.parse_args()
 save_model = opts.save
@@ -54,7 +55,7 @@ dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
 #dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/all/'
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
-                         transform = Scale()
+                         #transform = Scale()
                          )
 
 # number of instances/examples
@@ -62,7 +63,7 @@ instances = len(dataset_t)
 
 # split train/val
 # the rest will be validation
-train_ratio = 0.99
+train_ratio = opts.trainRatio
 train_instances = int(train_ratio*instances)
 val_instances = int((1-train_ratio)*instances)
 
@@ -107,7 +108,7 @@ model = Conv3DModel(inputShape,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
                     stride=opts.stride,
-                    hidden_layers_in_out=[(512,512), (512,512)])
+                    hidden_layers_in_out=[(512,512),(512,512)])
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
