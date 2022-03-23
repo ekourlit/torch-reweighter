@@ -6,7 +6,7 @@ today = str(date.today())
 from os import system
 import pdb
 from sklearn.calibration import calibration_curve
-from scipy.stats import wasserstein_distance
+from scipy.stats import wasserstein_distance, sem
 from scipy.spatial.distance import jensenshannon
 import matplotlib
 matplotlib.use('Agg')
@@ -14,7 +14,7 @@ from matplotlib.lines import Line2D
 plt.style.use('default')
 font = {'size':14}
 matplotlib.rc('font', **font)
-
+from esutil.stat import wmom
 import pandas as pd
 
 class Plotter:
@@ -32,8 +32,7 @@ class Plotter:
         # construct np.arrays
         self.nominal_layers = nominal_dataset['layers'][:][:self.max_events, :, :, :] # shape: (self.max_events, 30, 30, 30)
         self.layers = dataset['layers'][:][:self.max_events, :, :, :] # shape: (self.max_events, 30, 30, 30)
-        print(weights[:self.max_events])
-        self.weights = 1./weights[:self.max_events]#np.divide(np.ones((self.max_events)), weights[:self.max_events], out=np.zeros_like(weights[:self.max_events]), where=weights[:self.max_events]>0) # shape: (self.max_events, )
+        self.weights = 1./weights[:self.max_events] # shape: (self.max_events, )
 
         self.saveDir = 'plots/'+today
         system('mkdir -p '+self.saveDir)
@@ -76,8 +75,7 @@ class Plotter:
         xmax = 230.
         binWidth = (xmax-xmin)/myBins
         density = True
-        #labels = ["Nominal", "Alternative", "Alternative*Weight"]
-        labels = ["0.1 mm (nominal)", "10 mm", "Corrected 10 mm"]
+        labels = ["Nominal", "Alternative", "Corrected"]
 
         # First get the raw counts so that we calculate the uncertainty.
         nsRaw, bins, patches = plt.hist(histos, bins=myBins)
@@ -86,7 +84,11 @@ class Plotter:
 
         # plot histo
         plt.clf()
-        fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw = {'height_ratios':[3, 1]}, sharex=True, dpi=200)#(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
+        fig, (ax1, ax2) = plt.subplots(2, 1, 
+                                       gridspec_kw = {'height_ratios':[3, 1]},
+                                       sharex=True,
+                                       dpi=200) #nrows=2, constrained_layout=True, figsize=(5 , 6)
+
         ns, bins, patches = ax1.hist(histos, 
                                      bins=myBins,
                                      range=(xmin, xmax),
@@ -97,6 +99,7 @@ class Plotter:
                                      #density=density,
                                      weights=[100*np.ones((len(histo)))/len((histo)) for histo in histos],
                                      color=colors[:2])
+
         ns_wgt, bins_wgt, patches_wgt = ax1.hist(alt_edep,
                                                  weights=100.*self.weights/self.weights.sum(),
                                                  bins=myBins,
@@ -116,19 +119,16 @@ class Plotter:
             relWgtUncs.append(np.sqrt(np.sum(bin_ws**2.))/np.sum(bin_ws))
         relWgtUncs = np.array(relWgtUncs)
 
-        w_distance = wasserstein_distance(ns[1], ns[0])
-        w_distance_wgt = wasserstein_distance(ns_wgt, ns[0])
-        js_distance = jensenshannon(ns[1], ns[0])
-        js_distance_wgt = jensenshannon(ns_wgt, ns[0])
-        font = 13
-        # ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
-        # ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.53, 0.92, 'JSD (Alt): %.3f' % round(js_distance,3), transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.53, 0.84, 'JSD (Alt*Weight): %.3f' % round(js_distance_wgt,3), transform=ax1.transAxes, fontsize=font)
+        # method to write the comparison metrics to the figure
+        self.write_metrics(ax1, ns, ns_wgt, histos)
 
         ax1.legend(custom_lines, labels, loc=2)
-        #ax1.set_ylabel('Events')
-        ax1.set_ylabel('Percent of total')
+        
+        if density:
+            ax1.set_ylabel('Percent of total')
+        else:
+            ax1.set_ylabel('Events')
+
         ax1.set_xlim((xmin, xmax))
         ax1.set_ylim([0, ax1.get_ylim()[1]*1.6])
 
@@ -163,170 +163,57 @@ class Plotter:
                     color='gray', 
                     linestyle='-',
                     linewidth=0.5)
+        
         ax2.set_ylim([0.3, 1.7])
+        
         # grid
         ax2.grid(which='major', axis='y')
         fig.subplots_adjust(hspace=0.1)
         fig.canvas.draw()
+
+        # save
         plt.savefig(self.saveDir+f'/edep{suffix}.png', bbox_inches='tight')
         plt.savefig(self.saveDir+f'/edep{suffix}.svg', bbox_inches='tight')
         plt.savefig(self.saveDir+f'/edep{suffix}.pdf', bbox_inches='tight')
 
-
-    def plot_event_edep(self, suffix:str =''):
+    def write_metrics(self, ax1, ns, ns_wgt, histograms):
         '''
-        Distribution of event energy deposit
+        Bin counts:
+        ns[0]: nominal
+        ns[1]: alternative
+        ns_wgt: alternative*weight
+
+        List of observable values per event
+        histograms = [nom_array, alt_array]
         '''
-        print("Plotter\t::\tPlotting event energy deposit")
-
-        nom_edep = self.calculate_edep(self.nominal_layers)
-        alt_edep = self.calculate_edep(self.layers)
-        histos = [nom_edep, alt_edep]
-
-        # plot histo
-        plt.clf()
-        fig, (ax1, ax2) = plt.subplots(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
-        fig.suptitle('Event energy deposit')
-
-        myBins = 20
-        xmin = 100
-        xmax = 300
-        density = True
-
-        ns, bins, patches = ax1.hist(histos, 
-                                     bins=myBins,
-                                     range=(xmin, xmax),
-                                     histtype='stepfilled',
-                                     alpha=0.4,
-                                     label=["Nominal", "Alternative"],
-                                     density=density)
-
-        ns_wgt, bins_wgt, patches_wgt = ax1.hist(alt_edep,
-                                                 weights=self.weights,
-                                                 bins=myBins,
-                                                 range=(xmin, xmax),
-                                                 histtype='step',
-                                                 linewidth=1,
-                                                 color='k',
-                                                 linestyle='--',
-                                                 label="Alternative*Weight",
-                                                 density=density)
-
+        # distabce metrics
         w_distance = wasserstein_distance(ns[1], ns[0])
         w_distance_wgt = wasserstein_distance(ns_wgt, ns[0])
         js_distance = jensenshannon(ns[1], ns[0])
         js_distance_wgt = jensenshannon(ns_wgt, ns[0])
-        font = 6
-        ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        # weighted mean standard error of the mean (alternative*weights)
+        wmean,werr = wmom(histograms[1], self.weights, inputmean=None, calcerr=True, sdev=False)
+        # standard error of the mean (nominal)
+        err = sem(histograms[0])
+        # ratio = statistical dilution
+        r = werr/err
 
-        ax1.legend()
-        ax1.set_ylabel('Events')
-        ax1.set_xlim((xmin, xmax))
-
-        # ratio plot
-        num = ns[1]
-        denom = ns[0]
-        ratios = np.divide(num, denom, out=np.zeros_like(num), where=denom!=0)
-        ax2.errorbar(bins[:-1],     # this is what makes it comparable
-                ratios,
-                linestyle='None',
-                color='C1',
-                marker = 'o',
-                markersize=5)
-        num_wgt = ns_wgt
-        ratios_wgt = np.divide(num_wgt, denom, out=np.zeros_like(num_wgt), where=denom!=0)
-        ax2.errorbar(bins[:-1],     # this is what makes it comparable
-                ratios_wgt,
-                linestyle='None',
-                color='k',
-                marker = 'o',
-                markersize=5)
-
-        ax2.set_ylabel('Ratio (Alt./Nom.)')
-        ax2.set_xlabel('Energy [MeV]')
-        ax2.set_xlim((xmin, xmax))
-
-        # hline
-        ax2.axhline(y=1.0, 
-                    color='gray', 
-                    linestyle='-',
-                    linewidth=0.5)
-        ax2.set_ylim([0.5, 2])
-        # grid
-        ax2.grid(which='major', axis='y')
+        font_size = 11
+        x_left = 0.7
+        y_top = 0.92
+        y_spacing = 0.08
         
-        plt.savefig(self.saveDir+f'/edep{suffix}.png', bbox_inches='tight')
-        
-    def plot_event_sparcity(self, suffix:str =''):
-        '''
-        Distribution of event cell sparcity
-        vangelis: something is going wrong with the bottom panel
-        '''
-        print("Plotter\t::\tPlotting event cell sparcity")
+        ax1.text(x_left, y_top, 'WD (Alt.): %.2f' % round(w_distance, 2), transform=ax1.transAxes, fontsize=font_size)
+        ax1.text(x_left, y_top-y_spacing, 'WD (Corr.): %.2f' % round(w_distance_wgt, 2), transform=ax1.transAxes, fontsize=font_size)
+        ax1.text(x_left, y_top-2*y_spacing, 'JSD (Alt.): %.2f' % round(js_distance, 2), transform=ax1.transAxes, fontsize=font_size)
+        ax1.text(x_left, y_top-3*y_spacing, 'JSD (Corr.): %.2f' % round(js_distance_wgt, 2), transform=ax1.transAxes, fontsize=font_size)
+        ax1.text(x_left, y_top-4*y_spacing, 'r: %.2f' % round(r, 2), transform=ax1.transAxes, fontsize=font_size)
 
-        nom_edep = self.calculate_non_zero(self.nominal_layers)
-        alt_edep = self.calculate_non_zero(self.layers)
-        histos = [nom_edep, alt_edep]
-
-        # plot histo
-        plt.clf()
-        fig, (ax1, ax2) = plt.subplots(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
-        fig.suptitle('Event cell sparcity')
-
-        myBins = 25
-        xmin = 0.0005
-        xmax = 0.0035
-        density = True
-
-        ns, bins, patches = ax1.hist(histos, 
-                                     bins=myBins,
-                                     range=(xmin, xmax),
-                                     histtype='stepfilled',
-                                     alpha=0.4,
-                                     label=["Nominal", "Alternative"],
-                                     density=density)
-
-        ns_wgt, bins_wgt, patches_wgt = ax1.hist(alt_edep,
-                                                 weights=self.weights,
-                                                 bins=myBins,
-                                                 range=(xmin, xmax),
-                                                 histtype='step',
-                                                 linewidth=1,
-                                                 color='k',
-                                                 linestyle='--',
-                                                 label="Alternative*Weight",
-                                                 density=density)
-
-        ax1.legend()
-        ax1.set_ylabel('Events')
-
-        # ratio plot
-        ax2.bar(bins[:-1],     # this is what makes it comparable
-                np.divide(ns[1], ns[0], out=np.zeros_like(ns[1]), where=ns[0]!=0),
-                alpha=0.4,
-                color='C1')
-        ax2.bar(bins[:-1],     # this is what makes it comparable
-                np.divide(ns_wgt, ns[0], out=np.zeros_like(ns_wgt), where=ns[0]!=0),
-                fill=False,
-                linewidth=1,
-                color='k',
-                linestyle='--')
-
-        # hline
-        ax2.axhline(y=1.0, 
-                    color='r', 
-                    linestyle='-',
-                    linewidth=0.5)
-
-        ax2.set_xlim(ax1.get_xlim())
-        ax2.set_ylim([0, 4])
-        ax2.set_ylabel('Ratio (Alt./Nom.)')
-        ax2.set_xlabel('Cell Sparcity')
-        
-        plt.savefig(self.saveDir+f'/cell_sparcity{suffix}.png', bbox_inches='tight')
+'''
+-----------------
+Ploting Functions
+-----------------
+'''
 
 def plot_calibration_curve(labels, probs: np.ndarray) -> None:
     ''' 
