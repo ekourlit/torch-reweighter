@@ -62,7 +62,7 @@ suffix = f'_stride{opts.stride}'+batchNormStr
 #################################################
 
 # load test dataset
-dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC10-95.hdf5')
+dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/test/showers-10kE10GeV-RC10-95.hdf5')
 dataset_t = get_tensor_dataset(dataset)
 # load nominal dataset (just for plotting)
 nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC01-30.hdf5')
@@ -97,7 +97,7 @@ model = Conv3DModel(inputShape,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
                     stride=opts.stride,
-                    hidden_layers_in_out=[(512,512), (512,512),(512,512), (512,512)]
+                    hidden_layers_in_out=[(512,512), (512,512)]
                     )
 
 model.load_state_dict(torch.load(model_path))
@@ -127,7 +127,8 @@ plots = Plotter(nom_dataset, dataset, weights)
 plots.plot_event_edep_WH(suffix=suffix)
 # plots.plot_event_sparcity()
 # plot_calibration_curve(labels, probs)
-csvLoggerPath = "logs/"+MODELNAME+'_csv/'+opts.logVersion+'/metrics.csv'
-print(csvLoggerPath)
 plot_weights(weights, suffix=suffix)
-plot_metrics(csvLoggerPath, suffix=suffix)
+
+# csvLoggerPath = "logs/"+MODELNAME+'_csv/'+opts.logVersion+'/metrics.csv'
+# print(csvLoggerPath)
+# plot_metrics(csvLoggerPath, suffix=suffix)
