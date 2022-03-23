@@ -115,8 +115,8 @@ result_tensor = trainer.predict(model,
 probs = get_flat_array(result_tensor, 0)
 weights = get_flat_array(result_tensor, 1)
 # clip on maxWeight
-maxWeight = 500
-weights[weights > maxWeight] = 0
+#maxWeight = 500
+#weights[weights > maxWeight] = 0
 
 # how many zeros?
 zero_counter = np.count_nonzero(weights==0)

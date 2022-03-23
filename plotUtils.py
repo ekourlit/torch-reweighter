@@ -32,7 +32,8 @@ class Plotter:
         # construct np.arrays
         self.nominal_layers = nominal_dataset['layers'][:][:self.max_events, :, :, :] # shape: (self.max_events, 30, 30, 30)
         self.layers = dataset['layers'][:][:self.max_events, :, :, :] # shape: (self.max_events, 30, 30, 30)
-        self.weights = 1./weights[:self.max_events] # shape: (self.max_events, )
+        print(weights[:self.max_events])
+        self.weights = 1./weights[:self.max_events]#np.divide(np.ones((self.max_events)), weights[:self.max_events], out=np.zeros_like(weights[:self.max_events]), where=weights[:self.max_events]>0) # shape: (self.max_events, )
 
         self.saveDir = 'plots/'+today
         system('mkdir -p '+self.saveDir)
@@ -76,11 +77,13 @@ class Plotter:
         binWidth = (xmax-xmin)/myBins
         density = True
         #labels = ["Nominal", "Alternative", "Alternative*Weight"]
-        labels = ["Nominal (0.1 mm)", "10 mm", "Corrected 10 mm"]
+        labels = ["0.1 mm (nominal)", "10 mm", "Corrected 10 mm"]
 
         # First get the raw counts so that we calculate the uncertainty.
         nsRaw, bins, patches = plt.hist(histos, bins=myBins)
         relUncs = 1./np.sqrt(nsRaw)
+        
+
         # plot histo
         plt.clf()
         fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw = {'height_ratios':[3, 1]}, sharex=True, dpi=200)#(nrows=2, constrained_layout=True, figsize=(5 , 6), dpi=200)
@@ -94,9 +97,8 @@ class Plotter:
                                      #density=density,
                                      weights=[100*np.ones((len(histo)))/len((histo)) for histo in histos],
                                      color=colors[:2])
-
         ns_wgt, bins_wgt, patches_wgt = ax1.hist(alt_edep,
-                                                 weights=100*self.weights/self.weights.sum(),
+                                                 weights=100.*self.weights/self.weights.sum(),
                                                  bins=myBins,
                                                  range=(xmin, xmax),
                                                  histtype='step',
@@ -106,16 +108,23 @@ class Plotter:
                                                  label=labels[2],
                                                  #density=density
                                                  )
+        
+        tempbins = np.digitize(np.array(alt_edep), bins_wgt)
+        relWgtUncs = []
+        for binI in range(myBins):
+            bin_ws = self.weights[np.where(tempbins==binI+1)[0]]
+            relWgtUncs.append(np.sqrt(np.sum(bin_ws**2.))/np.sum(bin_ws))
+        relWgtUncs = np.array(relWgtUncs)
 
         w_distance = wasserstein_distance(ns[1], ns[0])
         w_distance_wgt = wasserstein_distance(ns_wgt, ns[0])
         js_distance = jensenshannon(ns[1], ns[0])
         js_distance_wgt = jensenshannon(ns_wgt, ns[0])
-        font = 8
+        font = 13
         # ax1.text(0.05, 0.86, 'WD (Alternative): %.4f' % w_distance, transform=ax1.transAxes, fontsize=font)
         # ax1.text(0.05, 0.80, 'WD (Alternative*Weight): %.4f' % w_distance_wgt, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.74, 'JSD (Alternative): %.4f' % js_distance, transform=ax1.transAxes, fontsize=font)
-        ax1.text(0.05, 0.68, 'JSD (Alternative*Weight): %.4f' % js_distance_wgt, transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.53, 0.92, 'JSD (Alt): %.3f' % round(js_distance,3), transform=ax1.transAxes, fontsize=font)
+        ax1.text(0.53, 0.84, 'JSD (Alt*Weight): %.3f' % round(js_distance_wgt,3), transform=ax1.transAxes, fontsize=font)
 
         ax1.legend(custom_lines, labels, loc=2)
         #ax1.set_ylabel('Events')
@@ -136,12 +145,14 @@ class Plotter:
                      markersize=5)
         num_wgt = ns_wgt
         ratios_wgt = np.divide(num_wgt, denom, out=np.zeros_like(num_wgt), where=denom!=0)
+        weightedRelUnc = num_wgt
         ax2.errorbar(bins[:-1]+binWidth/2,     # this is what makes it comparable
-                ratios_wgt,
-                linestyle='None',
+                     ratios_wgt,
+                     linestyle='None',
                      color=colors[2],
-                marker = 'o',
-                markersize=5)
+                     marker = 'o',
+                     yerr=ratios*np.sqrt(np.power(relUncs[0],2)+np.power(relWgtUncs,2)),
+                     markersize=5)
 
         ax2.set_ylabel('Ratio\n(X/Nominal)')
         ax2.set_xlabel('Energy [MeV]')
@@ -376,6 +387,8 @@ def plot_metrics(csvLoggerPath: str, suffix: str = '') -> None:
     plt.figure(figsize=(5 , 5), dpi=200)
     trainInfo = metrics[metrics['train_loss'].notnull()]
     valInfo = metrics[metrics['val_loss'].notnull()]
+    print(trainInfo['step'].max())
+    print(valInfo['step'].max())
     plt.plot(trainInfo['step'], trainInfo['train_loss'], label='Train loss')
     plt.plot(valInfo['step'], valInfo['val_loss'], label='Val loss')
     plt.xlabel("Step")

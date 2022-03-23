@@ -19,7 +19,9 @@ def get_HDF5_dataset(filename: str) -> h5py._hl.group.Group:
 
     return dataset
 
-def get_tensor_dataset(dataset: h5py._hl.group.Group, nominal: bool = False) -> TensorDataset:
+def get_tensor_dataset(dataset: h5py._hl.group.Group,
+                       nominal: bool = False,
+                       transform: object = None) -> TensorDataset:
     # retrieve np arrays
     layers = dataset['layers'][:]
     energy = dataset['energy'][:]
@@ -33,7 +35,9 @@ def get_tensor_dataset(dataset: h5py._hl.group.Group, nominal: bool = False) -> 
     # convert to tensors
     layers_t = FloatTensor(layers)
     labels_t = FloatTensor(labels)
-
+    # apply any extra transform
+    if transform:
+        layers = transform(layers_t)
     # create torch dataset
     dataset_t = TensorDataset(layers_t, labels_t)
 
