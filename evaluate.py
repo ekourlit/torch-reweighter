@@ -63,7 +63,9 @@ suffix = f'_stride{opts.stride}'+batchNormStr
 
 # load test dataset
 dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC10-95.hdf5')
-dataset_t = get_tensor_dataset(dataset)
+dataset_t = get_tensor_dataset(dataset,
+                               #transform = Scale()
+                               )
 # load nominal dataset (just for plotting)
 nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC01-30.hdf5')
 
@@ -97,7 +99,8 @@ model = Conv3DModel(inputShape,
                     use_batchnorm=opts.batchNorm,
                     use_dropout=True,
                     stride=opts.stride,
-                    hidden_layers_in_out=[(512,512), (512,512),(512,512), (512,512)]
+                    hidden_layers_in_out=[(512,512), (512,512)]
+                    #hidden_layers_in_out=[(512,512), (512,512),(512,512), (512,512)]
                     )
 
 model.load_state_dict(torch.load(model_path))
@@ -115,8 +118,8 @@ result_tensor = trainer.predict(model,
 probs = get_flat_array(result_tensor, 0)
 weights = get_flat_array(result_tensor, 1)
 # clip on maxWeight
-maxWeight = 500
-weights[weights > maxWeight] = 0
+#maxWeight = 500
+#weights[weights > maxWeight] = 0
 
 # how many zeros?
 zero_counter = np.count_nonzero(weights==0)
