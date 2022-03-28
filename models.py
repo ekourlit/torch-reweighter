@@ -210,7 +210,10 @@ class Conv3DModel(pl.LightningModule):
         self.log('val_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
-
+        self.log_dict({
+            'valid_loss': loss.mean(),
+            'valid_accuracy':accuracy.mean()
+        })
         return {'loss': loss, 'dict': best_worst_dict}
 
     # def validation_step_end(self, batch_parts):

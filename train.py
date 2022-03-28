@@ -1,13 +1,16 @@
 import pdb
 import argparse
 from operator import itemgetter
-import torch
+import torch, matplotlib
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
-from models import Conv3DModel
+from models import Conv3DModel, MetricsCallback
 from data import CellsDataset, Scale
-
+import matplotlib.pyplot as plt
+plt.style.use('default')
+font = {'size':14}
+matplotlib.rc('font', **font)
 #################################################
 
 # set random seeds
@@ -119,6 +122,7 @@ trainer = pl.Trainer(#accelerator='cpu',
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
                      #log_every_n_steps=1000,
+    callbacks=[MetricsCallback()],
                      logger=[logger],
     #progress_bar_refresh_rate=0,
 )
@@ -128,3 +132,18 @@ trainer.fit(model, train_loader, val_loader)
 # save model
 if save_model:
     torch.save(model.state_dict(), SAVEPATH+MODELNAME+'.pt')
+
+metrics = trainer.callbacks[0].metrics
+fig, ax = plt.subplots()
+ax.plot(metrics['loss'])
+ax.plot(metrics['valid_loss'])
+ax.set_ylabel('loss')
+ax.set_xlabel('epoch')
+plt.savefig(f'loss.pdf', bbox_inches='tight')
+
+fig, ax = plt.subplots()
+ax.plot(metrics['accuracy'])
+ax.plot(metrics['valid_accuracy'])
+ax.set_ylabel('accuracy')
+ax.set_xlabel('epoch')
+plt.savefig(f'accuracy.pdf', bbox_inches='tight')
