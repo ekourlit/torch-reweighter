@@ -112,15 +112,14 @@ model = Conv3DModel(inputShape,
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
-csvLogger = CSVLogger("logs/", name=MODELNAME+'_csv')
 
 # init a trainer
 trainer = pl.Trainer(#accelerator='cpu',
                      gpus=[0],
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
-                     log_every_n_steps=1000,
-                     logger=[logger, csvLogger],
+                     #log_every_n_steps=1000,
+                     logger=[logger],
     #progress_bar_refresh_rate=0,
 )
 # train
