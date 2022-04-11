@@ -7,7 +7,22 @@ import torch.nn.functional as F
 from torchmetrics.functional import accuracy, precision, recall, f1
 from typing import Tuple
 import numpy as np
+from pytorch_lightning import Callback
 
+import copy
+class MetricsCallback(Callback):
+    """PyTorch Lightning metric callback."""
+    def __init__(self):
+        super().__init__()
+        self.metrics = {}
+
+    def on_epoch_end(self, trainer, pl_module):
+        metrics = copy.deepcopy(trainer.callback_metrics)
+        
+        for metric in metrics:
+            if metric not in self.metrics:
+                self.metrics[metric] = [metrics[metric]]
+            self.metrics[metric].append(metrics[metric])
 #################################################
 
 class Conv3DModel(pl.LightningModule):
@@ -176,6 +191,10 @@ class Conv3DModel(pl.LightningModule):
         self.log('train_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('train_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
 
+        self.log_dict({
+            'loss': loss.mean(),
+            'accuracy':accuracy.mean()
+        })
         return loss
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int):
@@ -191,7 +210,10 @@ class Conv3DModel(pl.LightningModule):
         self.log('val_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
-
+        self.log_dict({
+            'valid_loss': loss.mean(),
+            'valid_accuracy':accuracy.mean()
+        })
         return {'loss': loss, 'dict': best_worst_dict}
 
     # def validation_step_end(self, batch_parts):
