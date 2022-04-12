@@ -6,8 +6,9 @@ from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from models import Conv3DModel, MetricsCallback
-from data import CellsDataset, Scale
+from data import *
 import matplotlib.pyplot as plt
+from plotUtils import plot_training_metrics
 plt.style.use('default')
 font = {'size':14}
 matplotlib.rc('font', **font)
@@ -54,11 +55,11 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
-#dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/all/'
+# dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
+dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/partial/'
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
-                         #transform = Scale()
+                         transform = LogScale()
                          )
 
 # number of instances/examples
@@ -133,17 +134,5 @@ trainer.fit(model, train_loader, val_loader)
 if save_model:
     torch.save(model.state_dict(), SAVEPATH+MODELNAME+'.pt')
 
-metrics = trainer.callbacks[0].metrics
-fig, ax = plt.subplots()
-ax.plot(metrics['loss'])
-ax.plot(metrics['valid_loss'])
-ax.set_ylabel('loss')
-ax.set_xlabel('epoch')
-plt.savefig(f'loss.pdf', bbox_inches='tight')
-
-fig, ax = plt.subplots()
-ax.plot(metrics['accuracy'])
-ax.plot(metrics['valid_accuracy'])
-ax.set_ylabel('accuracy')
-ax.set_xlabel('epoch')
-plt.savefig(f'accuracy.pdf', bbox_inches='tight')
+# plot some training metrics
+plot_training_metrics(trainer)

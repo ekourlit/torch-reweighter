@@ -56,8 +56,7 @@ class Conv3DModel(pl.LightningModule):
 
         outSize, self.conv_layer1 = self.set_conv_block(inputShape, outChannels, stride)
         # self.conv_layer2 = self.set_conv_block(128, 128)
-        self.fc_conv = nn.Linear(outSize, self.hidden_layers_in_out[0][0]) # I still don't know how to calculate the first argument number
-        # WH: see below how to calculate it
+        self.fc_conv = nn.Linear(outSize, self.hidden_layers_in_out[0][0])
         self.fcs = self.set_fc_hidden_block(self.hidden_layers_in_out)
         self.fc_out = nn.Linear(self.hidden_layers_in_out[-1][-1], self.num_classes)
         
@@ -195,6 +194,7 @@ class Conv3DModel(pl.LightningModule):
             'loss': loss.mean(),
             'accuracy':accuracy.mean()
         })
+
         return loss
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int):
@@ -210,51 +210,55 @@ class Conv3DModel(pl.LightningModule):
         self.log('val_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
         self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        
         self.log_dict({
             'valid_loss': loss.mean(),
             'valid_accuracy':accuracy.mean()
         })
+        
         return {'loss': loss, 'dict': best_worst_dict}
 
-    # def validation_step_end(self, batch_parts):
-    #     # aggregate when using multiple GPUs
+    '''
+    def validation_step_end(self, batch_parts):
+        # aggregate when using multiple GPUs
         
-    #     # loss
-    #     losses = batch_parts['loss']
-    #     loss = torch.mean(losses)
+        # loss
+        losses = batch_parts['loss']
+        loss = torch.mean(losses)
         
-    #     # best_worst_dicts
-    #     dicts = batch_parts['dict']
-    #     # find which GPU holded the image with the best score
-    #     best_gpu_idx = torch.argmax(dicts['best'][0])
-    #     max_prob = dicts['best'][0][best_gpu_idx]
-    #     # idxs to select images
-    #     if best_gpu_idx == 0:
-    #         start_idx = 0
-    #         end_edx = 30
-    #     elif best_gpu_idx == 1:
-    #         start_idx = 30
-    #         end_edx = 60
-    #     max_prob_img = dicts['best'][1][start_idx:end_edx, :, :]
-    #     # find which GPU holded the image with the best score
-    #     worst_gpu_idx = torch.argmin(dicts['worst'][0])
-    #     min_prob = dicts['worst'][0][worst_gpu_idx]
-    #     # idxs to select images
-    #     if worst_gpu_idx == 0:
-    #         start_idx = 0
-    #         end_edx = 30
-    #     elif worst_gpu_idx == 1:
-    #         start_idx = 30
-    #         end_edx = 60
-    #     min_prob_img = dicts['worst'][1][start_idx:end_edx, :, :]
+        # best_worst_dicts
+        dicts = batch_parts['dict']
+        # find which GPU holded the image with the best score
+        best_gpu_idx = torch.argmax(dicts['best'][0])
+        max_prob = dicts['best'][0][best_gpu_idx]
+        # idxs to select images
+        if best_gpu_idx == 0:
+            start_idx = 0
+            end_edx = 30
+        elif best_gpu_idx == 1:
+            start_idx = 30
+            end_edx = 60
+        max_prob_img = dicts['best'][1][start_idx:end_edx, :, :]
+        # find which GPU holded the image with the best score
+        worst_gpu_idx = torch.argmin(dicts['worst'][0])
+        min_prob = dicts['worst'][0][worst_gpu_idx]
+        # idxs to select images
+        if worst_gpu_idx == 0:
+            start_idx = 0
+            end_edx = 30
+        elif worst_gpu_idx == 1:
+            start_idx = 30
+            end_edx = 60
+        min_prob_img = dicts['worst'][1][start_idx:end_edx, :, :]
 
-    #     # re-construct return dict
-    #     best_worst_dict = {
-    #         "best"  : [max_prob, max_prob_img],
-    #         "worst" : [min_prob, min_prob_img]
-    #     }
+        # re-construct return dict
+        best_worst_dict = {
+            "best"  : [max_prob, max_prob_img],
+            "worst" : [min_prob, min_prob_img]
+        }
         
-    #     return {'loss': loss, 'dict': best_worst_dict}
+        return {'loss': loss, 'dict': best_worst_dict}
+    '''
 
     def projection_over_cols(self, img):
         return torch.sum(img, 1)

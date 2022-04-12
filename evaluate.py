@@ -114,6 +114,7 @@ result_tensor = trainer.predict(model,
 
 probs = get_flat_array(result_tensor, 0)
 weights = get_flat_array(result_tensor, 1)
+
 # clip on maxWeight
 #maxWeight = 500
 #weights[weights > maxWeight] = 0
@@ -122,12 +123,14 @@ weights = get_flat_array(result_tensor, 1)
 zero_counter = np.count_nonzero(weights==0)
 print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))
 
-# plotting
+#################################################
+# Plotting
+
 plots = Plotter(nom_dataset, dataset, weights)
-plots.plot_event_edep_WH(suffix=suffix)
-# plots.plot_event_sparcity()
-# plot_calibration_curve(labels, probs)
 plot_weights(weights, suffix=suffix)
+plots.plot_event_observables(suffix=suffix)
+
+# plot_calibration_curve(labels, probs)
 
 # csvLoggerPath = "logs/"+MODELNAME+'_csv/'+opts.logVersion+'/metrics.csv'
 # print(csvLoggerPath)
