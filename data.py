@@ -45,35 +45,36 @@ def get_tensor_dataset(dataset: h5py._hl.group.Group,
 
     return dataset_t
 
-class Scale(object):
+class NormPerImg(object):
     '''
-    Transform scale Tensors to [0,1] i.e. divide by max
+    Transform: scale Tensors to [0,1] i.e. divide by max per image
     code can be vectorized for faster execution
     example: https://discuss.pytorch.org/t/using-scikit-learns-scalers-for-torchvision/53455/6
     '''
 
     def __call__(self, layers):
         # layers: B x C x H x W x D
-        for batch_idx, ilayers in enumerate(layers):
+        for ilayers in layers:
             scale = torch.max(ilayers)
             if scale == 0.0:
                 scale == 1.0
             ilayers = torch.mul(ilayers, 1.0 / scale)
-            layers[batch_idx] = ilayers
         
         return layers
 
-class HighLevelAugmentation(object):
+class LogScale(object):
     '''
-    Transform to calculate high-level variables from layers
+    Transform: scale Tensor feature to log10
+    probably can be also vectorized
     '''
 
     def __call__(self, layers):
         # layers: B x C x H x W x D
-        for batch_idx, ilayers in enumerate(layers):
-            edep = calculate_event_energy(ilayers)
-            # not sure where to put that...
-        
+        for ilayers in layers:
+            # find non-zero indices
+            idx = ilayers!=0
+            ilayers[idx] = torch.log10(ilayers[idx])
+                    
         return layers
 
 class CellsDataset(Dataset):
