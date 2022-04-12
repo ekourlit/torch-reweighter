@@ -17,7 +17,7 @@ matplotlib.rc('font', **font)
 from esutil.stat import wmom
 import pandas as pd
 from variables import calculate_edep_np, calculate_non_zero_np, calculate_longitudinal_centroid_np, calculate_r2_np, calculate_Rz_np, calculate_Rx_np, calculate_lambda2_np
-
+from pytorch_lightning import Trainer
 
 class Plotter:
     """
@@ -304,3 +304,23 @@ def plot_metrics(csvLoggerPath: str, suffix: str = '') -> None:
     plt.savefig(saveDir+f'/accuracy{suffix}.png', bbox_inches='tight')
     plt.savefig(saveDir+f'/accuracy{suffix}.pdf', bbox_inches='tight')
     plt.savefig(saveDir+f'/accuracy{suffix}.svg', bbox_inches='tight')
+
+def plot_training_metrics(trainer: Trainer) -> None:
+    metrics = trainer.callbacks[0].metrics
+    
+    saveDir = 'plots/'+today
+    system('mkdir -p '+saveDir)
+
+    fig, ax = plt.subplots()
+    ax.plot(metrics['loss'])
+    ax.plot(metrics['valid_loss'])
+    ax.set_ylabel('loss')
+    ax.set_xlabel('epoch')
+    plt.savefig(saveDir+f'/loss.pdf', bbox_inches='tight')
+
+    fig, ax = plt.subplots()
+    ax.plot(metrics['accuracy'])
+    ax.plot(metrics['valid_accuracy'])
+    ax.set_ylabel('accuracy')
+    ax.set_xlabel('epoch')
+    plt.savefig(saveDir+f'/accuracy.pdf', bbox_inches='tight')
