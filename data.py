@@ -62,6 +62,23 @@ class NormPerImg(object):
         
         return layers
 
+class NormGlob(object):
+    '''
+    Transform: scale Tensors to [0,1] i.e. divide by max per all images
+    probably can be also vectorized
+    '''
+
+    def __init__(self, global_max):
+        self.global_max = global_max
+
+    def __call__(self, layers):
+        # layers: B x C x H x W x D
+        for ilayers in layers:
+            scale = self.global_max
+            ilayers = torch.mul(ilayers, 1.0 / scale)
+        
+        return layers
+
 class LogScale(object):
     '''
     Transform: scale Tensor feature to log10
