@@ -104,6 +104,7 @@ class CellsDataset(Dataset):
     def __init__(self, 
                  path: str,
                  batch_size: int,
+                 global_features: list = None,
                  transform: object = None,
                  nom_key: str = 'RC01', 
                  alt_key: str = 'RC10') -> None:
@@ -116,6 +117,9 @@ class CellsDataset(Dataset):
                 self.files.append(inFName)
         self.files.sort(key=self.count_sorter)
         self.batch_size = batch_size
+        self.global_features = global_features
+        self.global_features_funcs = {'edep': calculate_event_energy, 
+                                      'sparcity': calculate_non_zero}
         self.transform = transform
         self.nom_key = nom_key
         self.alt_key = alt_key
@@ -189,5 +193,23 @@ class CellsDataset(Dataset):
             # apply any extra transform
             if self.transform:
                 layers = self.transform(layers)
+            
+            # VK: I can construct the global_features_dict in the __init__
+            # or at least parallelize the calculation for loop (maybe that's more important, although pytorch takes care the parallelization of the different batches)
+            if self.global_features is not None:
+                # dict holding var : tensor
+                global_features_dict = {}
+                for feature_name in self.global_features:
+                    func = self.global_features_funcs[feature_name]
+                    global_features_dict[feature_name] = func(layers)
 
-            return layers, labels
+                if len(global_features_dict.keys()) > 1:
+                    features = torch.stack(list(global_features_dict.values()), dim=1)
+                else:
+                    features = list(global_features_dict.values())[0]
+                    features = features.reshape(-1, 1)
+
+                return layers, features, labels
+                
+            else:
+                return layers, labels

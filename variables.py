@@ -6,9 +6,9 @@ import math
 from typing import Tuple
 
 '''
----------------------------------------------------
-Calculations for plotting operating on numpy arrays
----------------------------------------------------
+-----------------------------------------------------
+Calculations for plotting - operating on numpy arrays
+-----------------------------------------------------
 '''
 
 @njit(parallel=True)
@@ -195,20 +195,20 @@ def calculate_lambda2_np(max_events: int, layers: np.ndarray) -> np.ndarray:
     return event_lambda2
 
 '''
----------------------------------------------------
-Calculations for training using numpy torch tensors
----------------------------------------------------
+------------------------------------------------------
+Calculations for training - operating on torch tensors
+------------------------------------------------------
 
 in general torch layers shape would be: B x C x H x W x D
 '''
 
-def calculate_event_energy(layers):
+def calculate_event_energy(layers: torch.FloatTensor) -> torch.FloatTensor:
     '''
     Event energy deposit
     '''
     return torch.sum( layers, dim=tuple(d for d in range(1,len(layers.size()))) )
 
-def calculate_non_zero(layers):
+def calculate_non_zero(layers: torch.FloatTensor) -> torch.FloatTensor:
     '''
     Event sparcity, i.e non-zero portion
     '''
