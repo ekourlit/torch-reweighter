@@ -140,7 +140,6 @@ class Conv3DModel(pl.LightningModule):
             optimizer = torch.optim.Adam(self.parameters(),
                                          lr=self.learning_rate)
 
-    
         return optimizer
 
     def calculate_metrics(self, logits: torch.Tensor, y_true: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -293,6 +292,99 @@ class Conv3DModel(pl.LightningModule):
     def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, _ = batch
         logits = self(x)
+        probs = torch.sigmoid(logits)
+        # clamping very small value to 1e-9 to avoid zero division
+        probs = torch.clamp(probs, min=1.0e-9)
+        r_hat = (1 - probs) / probs # p_{1}(x) / p_{0}(x) (??) # from: https://github.com/sjiggins/carl-torch/blob/master/ml/evaluate.py#L38
+        weights = r_hat # carl-torch inverts this but we don't as we want to re-weight the anternative (p_{1}) -> original (p_{0}). Ref: https://github.com/sjiggins/carl-torch/blob/master/evaluate.py#L67
+
+        return probs, weights
+
+
+class Conv3DModelGF(Conv3DModel):
+
+    def __init__(self,
+                 inputShape: Tuple[int, int, int, int], 
+                 num_features: int,
+                 learning_rate: float = 0.001, 
+                 use_batchnorm: bool = False, 
+                 use_dropout: bool = False, 
+                 weight_decay: bool = True, 
+                 stride: int = 1, 
+                 outChannels: int = 6, 
+                 hidden_layers_in_out=[(512, 512), (512, 512)]
+                 ) -> None:
+        super().__init__(inputShape,
+                         learning_rate,
+                         use_batchnorm, 
+                         use_dropout, 
+                         weight_decay, 
+                         stride, 
+                         outChannels, 
+                         hidden_layers_in_out)
+
+        outSize, self.conv_layer1 = super().set_conv_block(inputShape, outChannels, stride)
+        self.fc_conv = nn.Linear(outSize+num_features, hidden_layers_in_out[0][0])
+
+    def forward(self, image: torch.Tensor, features: torch.Tensor) -> torch.Tensor:
+        out = self.conv_layer1(image)
+        # out = self.conv_layer2(out)
+        out = out.view(out.size(0), -1) # flatten
+        # concatenate conv output and global features
+        out = torch.cat((out, features), dim=1)
+        out = self.fc_conv(out)
+        out = self.relu(out)
+        if self.use_dropout:
+            out = self.drop(out)
+        out = self.fcs(out)
+        out = self.fc_out(out)
+        
+        return out
+
+    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
+        x, f, y = batch
+        logits = self(x, f)
+        loss = F.binary_cross_entropy_with_logits(logits, y)
+        # metrics
+        accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
+
+        self.log('train_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True, sync_dist=True)
+        self.log('train_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('train_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('train_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('train_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+
+        self.log_dict({
+            'loss': loss.mean(),
+            'accuracy':accuracy.mean()
+        })
+
+        return loss
+
+    def validation_step(self, batch: torch.Tensor, batch_idx: int):
+        x, f, y = batch
+        logits = self(x, f)
+        loss = F.binary_cross_entropy_with_logits(logits, y)
+        # metrics
+        accuracy, precision, recall, f1 = self.calculate_metrics(logits, y)
+        best_worst_dict = self.fetch_best_worst_imgs(logits, x)
+
+        self.log('val_loss', loss,            on_step=True,   on_epoch=False, prog_bar=True,  logger=True, sync_dist=True)
+        self.log('val_accuracy', accuracy,    on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('val_precision', precision,  on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('val_recall', recall,        on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        self.log('val_f1', f1,                on_step=False,  on_epoch=True,  prog_bar=False, logger=True, sync_dist=True)
+        
+        self.log_dict({
+            'valid_loss': loss.mean(),
+            'valid_accuracy':accuracy.mean()
+        })
+        
+        return {'loss': loss, 'dict': best_worst_dict}
+
+    def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
+        x, f, _ = batch
+        logits = self(x, f)
         probs = torch.sigmoid(logits)
         # clamping very small value to 1e-9 to avoid zero division
         probs = torch.clamp(probs, min=1.0e-9)
