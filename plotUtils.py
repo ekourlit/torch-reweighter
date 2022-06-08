@@ -1,4 +1,3 @@
-from re import A
 import numpy as np
 from matplotlib import pyplot as plt
 import h5py
@@ -17,98 +16,8 @@ font = {'size':14}
 matplotlib.rc('font', **font)
 from esutil.stat import wmom
 import pandas as pd
-from numba import njit,jit, prange
-import math
-
-@njit(parallel=True)
-def calculate_com(array):
-    w_y = w_x = w_z = np.zeros(30*30*30)
-    norm = 0
-    
-    # loop over cells
-    i = 0
-    for y in prange(30):
-        for x in prange(30):
-            for z in prange(30):
-                edep = array[y, x, z]
-                w_y[i]= edep*y
-                w_x[i]= edep*x
-                w_z[i]= edep*z
-                norm += edep
-                i += 1
-    
-    w_y = w_y/norm
-    w_x = w_x/norm
-    w_z = w_z/norm
-    
-    y_com = np.sum(w_y)
-    x_com = np.sum(w_x)
-    z_com = np.sum(w_z)
-    
-    return y_com, x_com, z_com
-
-@njit(parallel=True)
-def really_calculate_r2(layers, max_events):
-    event_r2 = np.zeros(max_events)
-    
-    # loop over events
-    for event_num in prange(max_events):
-        event_layers = layers[event_num, :, :, :]
-        # caclulate center of mass
-        y_com, x_com, z_com = calculate_com(event_layers)
-        
-        event_edep = 0
-        event_ewgt_r2distance = 0
-
-        # loop over cells
-        for y in prange(30):
-            for x in prange(30):
-                for z in prange(30):
-                    edep = event_layers[y,x,z]
-                    y_cell = y
-                    x_cell = x
-                    z_cell = z
-                    r_distance = math.sqrt((x_cell**2 + z_cell**2)) - math.sqrt((x_com**2 + z_com**2))
-                    ewgt_r2distance = edep*(r_distance**2)
-
-                    event_edep += edep
-                    event_ewgt_r2distance += ewgt_r2distance
-
-        event_r2[event_num] = (event_ewgt_r2distance / event_edep)
-    
-    return event_r2
-
-@njit(parallel=True)
-def really_calculate_lambda2(layers, max_events):
-    tot_events = max_events
-    event_lambda2 = np.zeros(tot_events)
-    
-    # loop over events
-    for event_num in prange(tot_events):
-        event_layers = layers[event_num, :, :, :]
-        # caclulate center of mass
-        y_com, x_com, z_com = calculate_com(event_layers)
-        
-        event_edep = 0
-        event_ewgt_l2distance = 0
-
-        # loop over cells
-        for y in prange(30):
-            for x in prange(30):
-                for z in prange(30):
-                    edep = event_layers[y,x,z]
-                    y_cell = y
-                    x_cell = x
-                    z_cell = z
-                    l_distance = y_cell - y_com
-                    ewgt_l2distance = edep*(l_distance**2)
-
-                    event_edep += edep
-                    event_ewgt_l2distance += ewgt_l2distance
-
-        event_lambda2[event_num] = event_ewgt_l2distance / event_edep
-    
-    return event_lambda2
+from variables import calculate_edep_np, calculate_non_zero_np, calculate_longitudinal_centroid_np, calculate_r2_np, calculate_Rz_np, calculate_Rx_np, calculate_lambda2_np
+from pytorch_lightning import Trainer
 
 class Plotter:
     """
@@ -130,93 +39,6 @@ class Plotter:
         self.saveDir = 'plots/'+today
         system('mkdir -p '+self.saveDir)
 
-    def calculate_edep(self, layers: np.ndarray) -> list:
-        events_energy_deposit = []
-        for event in range(self.max_events):
-            event_layers = layers[event, :, :, :]
-            events_energy_deposit.append(np.sum(event_layers))
-        
-        return events_energy_deposit
-
-    def calculate_non_zero(self, layers: np.ndarray) -> list:
-        nonzero_portions = []
-        total_cells = 30*30*30
-        for event in range(self.max_events):
-            event_layers = layers[event, :, :, :]
-            nonzero_elements = len(np.nonzero(event_layers)[0])
-            nonzero_portion = nonzero_elements/total_cells
-            nonzero_portions.append(nonzero_portion)
-        
-        return nonzero_portions
-
-    def calculate_longitudinal_centroid(self, layers: np.ndarray) -> list:
-        event_lcentroid = []
-        
-        # loop over events
-        for event_num in range(self.max_events):
-            event_layers = layers[event_num, :, :, :]
-            energies_per_layer = np.zeros(30)
-            ewgt_idx_per_layer = np.zeros(30)
-            
-            # loop over y-layers
-            for i in range(30):
-                ylayer = event_layers[i, :, :]
-                layer_energy = np.sum(ylayer)
-                layer_idx = i+1
-                ewgt_idx = layer_idx*layer_energy
-                
-                ewgt_idx_per_layer[i] = ewgt_idx
-                energies_per_layer[i] = layer_energy
-            
-            event_energy = np.sum(energies_per_layer)
-            event_lcentroid.append(np.sum(ewgt_idx_per_layer / event_energy))
-        
-        return event_lcentroid
-
-    def calculate_r2(self, layers):
-        return really_calculate_r2(layers, self.max_events)
-
-    def calculate_lambda2(self, layers):
-        return really_calculate_lambda2(layers, self.max_events)
-
-    def calculate_Rz(self, layers):
-        event_Rz = []
-        # loop over variant events
-        for event in range(self.max_events):
-            edep = np.sum(layers[event, :, :, :])
-            Rz = []
-            # loop over layers
-            for i in range(30):
-                layer = layers[event, i, :, :]
-                layer_edep = np.sum(layer)
-                num = np.sum(layer[18:27, 13:17])
-                denom = np.sum(layer[18:27, 11:19])
-                Rz_ewgted = ((num/denom)*layer_edep) if denom else 0
-                Rz.append(Rz_ewgted)
-            # get the sum of Rz and normalize
-            event_Rz.append(np.sum(Rz)/edep)
-
-        return event_Rz
-
-    def calculate_Rx(self, layers):
-        event_Rx = []
-        # loop over variant events
-        for event in range(self.max_events):
-            edep = np.sum(layers[event, :, :, :])
-            Rx = []
-            # loop over layers
-            for i in range(30):
-                layer = layers[event, i, :, :]
-                layer_edep = np.sum(layer)
-                num = np.sum(layer[20:25, 12:18])
-                denom = np.sum(layer[17:28, 12:18])
-                Rx_ewgted = ((num/denom)*layer_edep) if denom else 0
-                Rx.append(Rx_ewgted)
-            # get the sum of Rx and normalize
-            event_Rx.append(np.sum(Rx)/edep)
-
-        return event_Rx
-
     def make_plot(self,
                   func,
                   histBins,
@@ -225,8 +47,8 @@ class Plotter:
                   savename):
 
         # calculate observable
-        nominal = func(self.nominal_layers)
-        alternative = func(self.layers)
+        nominal = func(self.max_events, self.nominal_layers)
+        alternative = func(self.max_events, self.layers)
         histos = [nominal, alternative]
 
         # plot auxiliaries
@@ -272,7 +94,11 @@ class Plotter:
         relWgtUncs = []
         for binI in range(histBins):
             bin_ws = self.weights[np.where(tempbins==binI+1)[0]]
-            relWgtUncs.append(np.sqrt(np.sum(bin_ws**2.))/np.sum(bin_ws))
+            bin_sumOfws = np.sum(bin_ws)
+            if bin_sumOfws != 0:
+                relWgtUncs.append(np.sqrt(np.sum(bin_ws**2.))/bin_sumOfws)
+            else:
+                relWgtUncs.append(0.0)
         relWgtUncs = np.array(relWgtUncs)
 
         # method to write the comparison metrics to the figure
@@ -342,13 +168,13 @@ class Plotter:
         print("Plotter\t::\tPlotting event observables")
 
         # dict of functions and parameters for different event obsrvables
-        observables_config = {'energy_deposit'          : {'func': self.calculate_edep, 'histBins': 20, 'xRange': (150, 230), 'xLabel': 'Energy [MeV]', 'savename': 'edep'+suffix},
-                            #   'sparcity'                : {'func': self.calculate_non_zero, 'histBins': 25, 'xRange': (0.0005, 0.0035), 'xLabel': 'Non-zero [%]', 'savename': 'sparcity'+suffix},
-                            #   'longitudinal_centroid'   : {'func': self.calculate_longitudinal_centroid, 'histBins': 10, 'xRange': (9, 19), 'xLabel': 'Cell Idx', 'savename': 'l_centroid'+suffix},
-                            #   'shower_shape_r2'         : {'func': self.calculate_r2, 'histBins': 30, 'xRange': (300, 600), 'xLabel': 'r2', 'savename': 'r2'+suffix},
-                            #   'shower_shape_Rz'         : {'func': self.calculate_Rz, 'histBins': 20, 'xRange': (0.25, 1.25), 'xLabel': 'R_z', 'savename': 'Rz'+suffix},
-                            #   'shower_shape_Rx'         : {'func': self.calculate_Rx, 'histBins': 20, 'xRange': (0, 0.5), 'xLabel': 'R_x', 'savename': 'Rx'+suffix},
-                              'shower_shape_l2'         : {'func': self.calculate_lambda2, 'histBins': 20, 'xRange': (0, 400), 'xLabel': 'l2', 'savename': 'l2'+suffix}
+        observables_config = {'energy_deposit'          : {'func': calculate_edep_np,                     'histBins': 20, 'xRange': (150, 230),       'xLabel': 'Energy [MeV]',   'savename': 'edep'+suffix},
+                              'sparcity'                : {'func': calculate_non_zero_np,                 'histBins': 28, 'xRange': (0.008, 0.015),   'xLabel': 'Non-zero [%]',   'savename': 'sparcity'+suffix},
+                              'longitudinal_centroid'   : {'func': calculate_longitudinal_centroid_np,    'histBins': 10, 'xRange': (9, 19),          'xLabel': 'Cell Idx',       'savename': 'l_centroid'+suffix},
+                              'shower_shape_r2'         : {'func': calculate_r2_np,                       'histBins': 20, 'xRange': (350, 550),       'xLabel': 'r2',             'savename': 'r2'+suffix},
+                              'shower_shape_Rz'         : {'func': calculate_Rz_np,                       'histBins': 20, 'xRange': (0.25, 1.25),     'xLabel': 'R_z',            'savename': 'Rz'+suffix},
+                              'shower_shape_Rx'         : {'func': calculate_Rx_np,                       'histBins': 20, 'xRange': (0, 0.5),         'xLabel': 'R_x',            'savename': 'Rx'+suffix},
+                              'shower_shape_l2'         : {'func': calculate_lambda2_np,                  'histBins': 20, 'xRange': (0, 400),         'xLabel': 'l2',             'savename': 'l2'+suffix}
                              }
         
         for observable in observables_config:
@@ -478,3 +304,23 @@ def plot_metrics(csvLoggerPath: str, suffix: str = '') -> None:
     plt.savefig(saveDir+f'/accuracy{suffix}.png', bbox_inches='tight')
     plt.savefig(saveDir+f'/accuracy{suffix}.pdf', bbox_inches='tight')
     plt.savefig(saveDir+f'/accuracy{suffix}.svg', bbox_inches='tight')
+
+def plot_training_metrics(trainer: Trainer) -> None:
+    metrics = trainer.callbacks[0].metrics
+    
+    saveDir = 'plots/'+today
+    system('mkdir -p '+saveDir)
+
+    fig, ax = plt.subplots()
+    ax.plot(metrics['loss'])
+    ax.plot(metrics['valid_loss'])
+    ax.set_ylabel('loss')
+    ax.set_xlabel('epoch')
+    plt.savefig(saveDir+f'/loss.pdf', bbox_inches='tight')
+
+    fig, ax = plt.subplots()
+    ax.plot(metrics['accuracy'])
+    ax.plot(metrics['valid_accuracy'])
+    ax.set_ylabel('accuracy')
+    ax.set_xlabel('epoch')
+    plt.savefig(saveDir+f'/accuracy.pdf', bbox_inches='tight')

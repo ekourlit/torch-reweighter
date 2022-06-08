@@ -1,13 +1,13 @@
 import pdb
 import argparse
-from operator import itemgetter
 import torch, matplotlib
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
-from models import Conv3DModel, MetricsCallback
-from data import CellsDataset, Scale
+from models import Conv3DModel, Conv3DModelGF, MetricsCallback
+from data import *
 import matplotlib.pyplot as plt
+from plotUtils import plot_training_metrics
 plt.style.use('default')
 font = {'size':14}
 matplotlib.rc('font', **font)
@@ -54,11 +54,12 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
-#dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/all/'
+# dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
+dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/partial/'
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
-                         #transform = Scale()
+                         transform = None, # takes None, NormPerImg, NormGlob(scale) or LogScale
+                         global_features = ['edep'] # takes None, edep and/or sparcity
                          )
 
 # number of instances/examples
@@ -98,33 +99,47 @@ val_loader      = DataLoader(ds_val,
 # get some random training layers
 # dataiter = iter(train_loader)
 # layers, labels = dataiter.next()
+# layers, features, labels = dataiter.next()
 # pdb.set_trace()
 
 #################################################
 
 inputShape = next(iter(train_loader))[0].numpy().shape[1:]
-print("Shape of input:", inputShape)
+print("Shape of input image:", inputShape)
+if dataset_t.global_features is not None:
+    num_features = next(iter(train_loader))[1].numpy().shape[1:][0]
+    print("Number of high-level (global) features:", num_features)
 
 # init model
-model = Conv3DModel(inputShape,
-                    learning_rate=5e-4,
-                    use_batchnorm=opts.batchNorm,
-                    use_dropout=True,
-                    stride=opts.stride,
-                    hidden_layers_in_out=[(512,512),(512,512)])
+if dataset_t.global_features is None:
+    model = Conv3DModel(inputShape,
+                        learning_rate=5e-4,
+                        use_batchnorm=opts.batchNorm,
+                        use_dropout=True,
+                        stride=opts.stride,
+                        hidden_layers_in_out=[(512,512),(512,512)])
+else:
+    model = Conv3DModelGF(inputShape,
+                          num_features,
+                          learning_rate=5e-4,
+                          use_batchnorm=opts.batchNorm,
+                          use_dropout=True,
+                          stride=opts.stride,
+                          hidden_layers_in_out=[(512,512),(512,512)])
 
 # log
 logger = TensorBoardLogger('logs/', MODELNAME)
 
 # init a trainer
-trainer = pl.Trainer(#accelerator='cpu',
+trainer = pl.Trainer(
+                    #  accelerator='cpu',
                      gpus=[0],
                     #  accelerator='ddp',
                      max_epochs=EPOCHS,
-                     #log_every_n_steps=1000,
-    callbacks=[MetricsCallback()],
+                    #  log_every_n_steps=1000,
+                     callbacks=[MetricsCallback()],
                      logger=[logger],
-    #progress_bar_refresh_rate=0,
+                    #  progress_bar_refresh_rate=0,
 )
 # train
 trainer.fit(model, train_loader, val_loader)
@@ -133,17 +148,5 @@ trainer.fit(model, train_loader, val_loader)
 if save_model:
     torch.save(model.state_dict(), SAVEPATH+MODELNAME+'.pt')
 
-metrics = trainer.callbacks[0].metrics
-fig, ax = plt.subplots()
-ax.plot(metrics['loss'])
-ax.plot(metrics['valid_loss'])
-ax.set_ylabel('loss')
-ax.set_xlabel('epoch')
-plt.savefig(f'loss.pdf', bbox_inches='tight')
-
-fig, ax = plt.subplots()
-ax.plot(metrics['accuracy'])
-ax.plot(metrics['valid_accuracy'])
-ax.set_ylabel('accuracy')
-ax.set_xlabel('epoch')
-plt.savefig(f'accuracy.pdf', bbox_inches='tight')
+# plot some training metrics
+plot_training_metrics(trainer)
