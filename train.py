@@ -33,6 +33,8 @@ parser.add_argument('--stride', type=int, default=3, help='Stride of filter.')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size.') #128 is better for atlasgpu
 parser.add_argument('-e', '--epochs',  type=int, default=100, help='Max number of epochs to train for.') 
 parser.add_argument('-r', '--trainRatio',  type=float, default=0.9, help='Ratio between training and testing set. Default is 0.9.') 
+parser.add_argument('-d', '--dataPath', type=str, default='/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_Jun3/', help='Path to data files.')
+parser.add_argument('-a', '--alt_key', type=str, default='RC10', help='Key for alternative range cut, e.g., RC10.')
 
 opts = parser.parse_args()
 save_model = opts.save
@@ -54,13 +56,15 @@ if save_model:
 #################################################
 
 # load data into custom Dataset
-# dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
-dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/partial/'
+dataPath = opts.dataPath
+#dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
+#dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_Jun3/'
+#dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/partial/'
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
                          transform = None, # takes None, NormPerImg, NormGlob(scale) or LogScale
-                         global_features = ['edep'] # takes None, edep and/or sparcity
-                         )
+                         global_features = ['edep'], # takes None, edep and/or sparcity
+                         alt_key=opts.alt_key)
 
 # number of instances/examples
 instances = len(dataset_t)
