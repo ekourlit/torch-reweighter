@@ -11,6 +11,37 @@ from variables import *
 
 #################################################
 
+def get_layers_max(filename: str) -> h5py._hl.group.Group:
+    # open the file
+    file = h5py.File(filename, 'r')
+    # get the dataset
+    dataset = file[list(file.keys())[0]]
+    # retrieve np arrays
+    layers = dataset['layers'][:]
+    max_edep = np.max(layers)
+    # close file
+    file.close()
+
+    return max_edep
+
+def get_global_max(directory: str, req_rc_tag: str):
+    # iterate over files
+    glob_max_edep = -9999
+    for filename in os.scandir(directory):
+        if filename.is_file():
+            rc_tag = filename.name.split('-')[2]
+            if rc_tag != req_rc_tag:
+                continue
+            # get max
+            max_edep = get_layers_max(filename.path)
+
+            if max_edep > glob_max_edep:
+                glob_max_edep = max_edep
+    
+    print(f'\nThe max cell edep over all files in the dir: {directory}')
+    print(f'is {glob_max_edep}')
+    return glob_max_edep
+
 def get_HDF5_dataset(filename: str) -> h5py._hl.group.Group:
     # open the file
     file = h5py.File(filename, 'r')

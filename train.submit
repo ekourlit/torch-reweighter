@@ -4,10 +4,10 @@
 #SBATCH -N 1
 #SBATCH -o /home/whopkins/torch-reweighter/logs/train.%j.%N.out
 #SBATCH -e /home/whopkins/torch-reweighter/logs/train%j.%N.error
-#SBATCH --time=08:00:00
+#SBATCH --time=24:00:00
 #SBATCH -A STARTUP-WHOPKINS
 ##SBATCH -A ATLAS-HEP-GROUP
 
-srun python train.py -s -m conv3d_2HFC_noscale_old_data --stride 3 -d /lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/ >& /home/whopkins/torch-reweighter/logs/train_stride3_2HFC_noscale_old.log & 
+srun python train.py -s -m conv3d_2HFC_noscale_old --stride 3 -d /lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/ >& /home/whopkins/torch-reweighter/logs/train_stride3_2HFC_noscale_old.log & 
 
 wait
