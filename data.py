@@ -150,7 +150,7 @@ class CellsDataset(Dataset):
         self.batch_size = batch_size
         self.global_features = global_features
         self.global_features_funcs = {'edep': calculate_event_energy, 
-                                      'sparcity': calculate_non_zero}
+                                      'sparsity': calculate_non_zero}
         self.transform = transform
         self.nom_key = nom_key
         self.alt_key = alt_key

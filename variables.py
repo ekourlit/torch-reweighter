@@ -210,7 +210,7 @@ def calculate_event_energy(layers: torch.FloatTensor) -> torch.FloatTensor:
 
 def calculate_non_zero(layers: torch.FloatTensor) -> torch.FloatTensor:
     '''
-    Event sparcity, i.e non-zero portion
+    Event sparsity, i.e non-zero portion
     '''
 
     sparcities = torch.zeros(layers.size()[0])
