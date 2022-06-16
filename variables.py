@@ -219,6 +219,9 @@ def calculate_non_zero(layers: torch.FloatTensor) -> torch.FloatTensor:
         
     return sparcities
 
+global_features_funcs = {'edep': calculate_event_energy, 
+                        'sparsity': calculate_non_zero}
+
 def calculate_longitudinal_centroid(layers):
     '''
     Event longitudinal centrod in the sense of how shower evolves, i.e. y-axix or array rows (axis=0)

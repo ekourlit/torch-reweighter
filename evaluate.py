@@ -54,16 +54,20 @@ model_path = opts.model
 
 BATCH_SIZE = opts.batchSize
 NUM_WORKERS = 2
-MODELNAME=model_path.split('/')[-1].rstrip('.pt')
+MODELNAME=model_path.split('/')[-1].rstrip('pt').rstrip('.')
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
 suffix = f'_stride{opts.stride}'+batchNormStr
+GLOBAL_FEATURES = []
+for i in MODELNAME.split('_'):
+    if 'G' in i: GLOBAL_FEATURES.append(i.lstrip('G'))
+
 #################################################
 
 # load test dataset
 dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/test/showers-10kE10GeV-RC10-95.hdf5')
-dataset_t = get_tensor_dataset(dataset)
+dataset_t = get_tensor_dataset(dataset, GLOBAL_FEATURES)
 # load nominal dataset (just for plotting)
 nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC01-30.hdf5')
 
@@ -83,7 +87,8 @@ test_loader = DataLoader(dataset_t,
 '''
 # get some random training images
 dataiter = iter(test_loader)
-images, labels = dataiter.next()
+# images, labels = dataiter.next()
+images, features, labels = dataiter.next()
 pdb.set_trace()
 '''
 #################################################
@@ -91,14 +96,27 @@ pdb.set_trace()
 # init model
 inputShape = next(iter(test_loader))[0].numpy().shape[1:]
 print("Shape of input:",inputShape)
+if len(GLOBAL_FEATURES):
+    num_features = next(iter(test_loader))[1].numpy().shape[1:][0]
+    print("Number of high-level (global) features:", num_features)
 
 # init model
-model = Conv3DModel(inputShape,
-                    use_batchnorm=opts.batchNorm,
-                    use_dropout=True,
-                    stride=opts.stride,
-                    hidden_layers_in_out=[(512,512), (512,512)]
-                    )
+if len(GLOBAL_FEATURES):
+    model = Conv3DModelGF(inputShape,
+                          num_features,
+                          use_batchnorm=opts.batchNorm,
+                          use_dropout=True,
+                          stride=opts.stride,
+                          hidden_layers_in_out=[(512,512), (512,512)]
+                          )
+
+else:
+    model = Conv3DModel(inputShape,
+                        use_batchnorm=opts.batchNorm,
+                        use_dropout=True,
+                        stride=opts.stride,
+                        hidden_layers_in_out=[(512,512), (512,512)]
+                        )
 
 model.load_state_dict(torch.load(model_path))
 
@@ -127,7 +145,7 @@ print("Zero weights fraction: %0.3f%% " % ( (zero_counter/len(weights))*100 ))
 # Plotting
 
 plots = Plotter(nom_dataset, dataset, weights)
-plot_weights(weights, suffix=suffix)
+# plot_weights(weights, suffix=suffix)
 plots.plot_event_observables(suffix=suffix)
 
 # plot_calibration_curve(labels, probs)
