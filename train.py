@@ -68,8 +68,8 @@ if opts.transform != 'None':
 
 globalFeaturesStr = ''
 if opts.globalFeatures:
-    globalFeaturesStr = '_'+'_'.join(opts.globalFeatures)
-    
+    globalFeaturesStr = '_G'+'_G'.join(opts.globalFeatures)
+
 MODELNAME = opts.modelName+f'_stride{opts.stride}_epochs{EPOCHS}'+batchNormStr+transformStr+globalFeaturesStr
 BATCH_SIZE = opts.batchSize
 
@@ -78,7 +78,6 @@ if save_model:
     SAVEPATH = 'models/'
     print("Trained model will be saved at", SAVEPATH)
 #################################################
-
 
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
