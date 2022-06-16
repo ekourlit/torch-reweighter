@@ -29,6 +29,7 @@ fix_randomness(42, False)
 parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-s', '--save', action='store_true', dest='save', default=False, help='Save the trained model.')
 parser.add_argument('-t', '--transform', choices=['None', 'NormPerImg', 'NormGlob', 'LogScale'], default='None', help='Type of transform to perform on the input data (e.g., normalizaing everything to be in the range [0,1]).')
+parser.add_argument('-g', '--globalFeatures', nargs='+', default=None, help='The global features to consider as additional inputs. e.g. -g edep sparsity')
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
 parser.add_argument('-m', '--modelName', type=str, default='conv3d', help='Name of model.')
 parser.add_argument('--stride', type=int, default=3, help='Stride of filter.')
@@ -64,9 +65,12 @@ if opts.transform != 'None':
         transform = locals()[opts.transform](global_max)
     else:
         transform = locals()[opts.transform]()
+
+globalFeaturesStr = ''
+if opts.globalFeatures:
+    globalFeaturesStr = '_'+'_'.join(opts.globalFeatures)
     
-    
-MODELNAME = opts.modelName+f'_stride{opts.stride}_epochs{EPOCHS}'+batchNormStr+transformStr
+MODELNAME = opts.modelName+f'_stride{opts.stride}_epochs{EPOCHS}'+batchNormStr+transformStr+globalFeaturesStr
 BATCH_SIZE = opts.batchSize
 
 NUM_WORKERS = 8
@@ -79,7 +83,7 @@ if save_model:
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
                          transform = transform, # takes None, NormPerImg, NormGlob(scale) or LogScale
-                         global_features = None, # takes None, edep and/or sparcity
+                         global_features = opts.globalFeatures, # takes None, edep and/or sparsity
                          alt_key=opts.alt_key)
 
 # number of instances/examples
@@ -169,4 +173,4 @@ if save_model:
     torch.save(model.state_dict(), SAVEPATH+MODELNAME+'.pt')
 
 # plot some training metrics
-plot_training_metrics(trainer)
+# plot_training_metrics(trainer)
