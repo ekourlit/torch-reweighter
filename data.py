@@ -7,7 +7,7 @@ from torch import FloatTensor
 from typing import Tuple
 from math import floor
 import torch
-from variables import *
+from variables import global_features_funcs
 
 #################################################
 
@@ -51,6 +51,7 @@ def get_HDF5_dataset(filename: str) -> h5py._hl.group.Group:
     return dataset
 
 def get_tensor_dataset(dataset: h5py._hl.group.Group,
+                       global_features: list,
                        nominal: bool = False,
                        transform: object = None) -> TensorDataset:
     # retrieve np arrays
@@ -68,11 +69,29 @@ def get_tensor_dataset(dataset: h5py._hl.group.Group,
     labels_t = FloatTensor(labels)
     # apply any extra transform
     if transform:
-        layers = transform(layers_t)
-    # create torch dataset
-    dataset_t = TensorDataset(layers_t, labels_t)
+        layers_t = transform(layers_t)
 
-    # need to normalize to [0, 1]...
+    # if there are global features calculate them
+    if len(global_features):
+        # dict holding var : tensor
+        global_features_dict = {}
+        for feature_name in global_features:
+            func = global_features_funcs[feature_name]
+            global_features_dict[feature_name] = func(layers_t)
+        
+        if len(global_features_dict.keys()) > 1:
+            features = torch.stack(list(global_features_dict.values()), dim=1)
+
+        else:
+            features = list(global_features_dict.values())[0]
+            features = features.reshape(-1, 1)
+
+        # create torch dataset
+        dataset_t = TensorDataset(layers_t, features, labels_t)
+    
+    else:
+        # create torch dataset
+        dataset_t = TensorDataset(layers_t, labels_t)
 
     return dataset_t
 
@@ -149,8 +168,6 @@ class CellsDataset(Dataset):
         self.files.sort(key=self.count_sorter)
         self.batch_size = batch_size
         self.global_features = global_features
-        self.global_features_funcs = {'edep': calculate_event_energy, 
-                                      'sparcity': calculate_non_zero}
         self.transform = transform
         self.nom_key = nom_key
         self.alt_key = alt_key
@@ -231,7 +248,7 @@ class CellsDataset(Dataset):
                 # dict holding var : tensor
                 global_features_dict = {}
                 for feature_name in self.global_features:
-                    func = self.global_features_funcs[feature_name]
+                    func = global_features_funcs[feature_name]
                     global_features_dict[feature_name] = func(layers)
 
                 if len(global_features_dict.keys()) > 1:
