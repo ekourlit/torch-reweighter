@@ -210,7 +210,7 @@ def calculate_event_energy(layers: torch.FloatTensor) -> torch.FloatTensor:
 
 def calculate_non_zero(layers: torch.FloatTensor) -> torch.FloatTensor:
     '''
-    Event sparcity, i.e non-zero portion
+    Event sparsity, i.e non-zero portion
     '''
 
     sparcities = torch.zeros(layers.size()[0])
@@ -218,6 +218,9 @@ def calculate_non_zero(layers: torch.FloatTensor) -> torch.FloatTensor:
         sparcities[batch_idx] = torch.nonzero(ilayer).size()[0] / (30*30*30)
         
     return sparcities
+
+global_features_funcs = {'edep': calculate_event_energy, 
+                        'sparsity': calculate_non_zero}
 
 def calculate_longitudinal_centroid(layers):
     '''

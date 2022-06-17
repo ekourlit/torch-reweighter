@@ -169,7 +169,7 @@ class Plotter:
 
         # dict of functions and parameters for different event obsrvables
         observables_config = {'energy_deposit'          : {'func': calculate_edep_np,                     'histBins': 20, 'xRange': (150, 230),       'xLabel': 'Energy [MeV]',   'savename': 'edep'+suffix},
-                              'sparcity'                : {'func': calculate_non_zero_np,                 'histBins': 28, 'xRange': (0.008, 0.015),   'xLabel': 'Non-zero [%]',   'savename': 'sparcity'+suffix},
+                              'sparsity'                : {'func': calculate_non_zero_np,                 'histBins': 28, 'xRange': (0.008, 0.015),   'xLabel': 'Non-zero [%]',   'savename': 'sparsity'+suffix},
                               'longitudinal_centroid'   : {'func': calculate_longitudinal_centroid_np,    'histBins': 10, 'xRange': (9, 19),          'xLabel': 'Cell Idx',       'savename': 'l_centroid'+suffix},
                               'shower_shape_r2'         : {'func': calculate_r2_np,                       'histBins': 20, 'xRange': (350, 550),       'xLabel': 'r2',             'savename': 'r2'+suffix},
                               'shower_shape_Rz'         : {'func': calculate_Rz_np,                       'histBins': 20, 'xRange': (0.25, 1.25),     'xLabel': 'R_z',            'savename': 'Rz'+suffix},

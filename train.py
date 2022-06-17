@@ -13,6 +13,7 @@ font = {'size':14}
 matplotlib.rc('font', **font)
 #################################################
 
+    
 # set random seeds
 def fix_randomness(seed: int, deterministic: bool = False) -> None:
     pl.seed_everything(seed, workers=True)
@@ -27,6 +28,8 @@ fix_randomness(42, False)
 
 parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-s', '--save', action='store_true', dest='save', default=False, help='Save the trained model.')
+parser.add_argument('-t', '--transform', choices=['None', 'NormPerImg', 'NormGlob', 'LogScale'], default='None', help='Type of transform to perform on the input data (e.g., normalizaing everything to be in the range [0,1]).')
+parser.add_argument('-g', '--globalFeatures', nargs='+', default=None, help='The global features to consider as additional inputs. e.g. -g edep sparsity')
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
 parser.add_argument('-m', '--modelName', type=str, default='conv3d', help='Name of model.')
 parser.add_argument('--stride', type=int, default=3, help='Stride of filter.')
@@ -42,11 +45,32 @@ save_model = opts.save
 #################################################
 # configuration
 EPOCHS = opts.epochs
+# load data into custom Dataset
+dataPath = opts.dataPath
+#dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
+#dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_Jun3/'
+#dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/partial/'
 
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
-MODELNAME = opts.modelName+f'_stride{opts.stride}_epochs{EPOCHS}'+batchNormStr
+
+transformStr = ''
+transform = None
+if opts.transform != 'None':
+    transformStr = '_trans'+opts.transform
+
+    if opts.transform == 'NormGlob':
+        global_max = get_global_max(dataPath, opts.alt_key)
+        transform = locals()[opts.transform](global_max)
+    else:
+        transform = locals()[opts.transform]()
+
+globalFeaturesStr = ''
+if opts.globalFeatures:
+    globalFeaturesStr = '_G'+'_G'.join(opts.globalFeatures)
+
+MODELNAME = opts.modelName+f'_stride{opts.stride}_epochs{EPOCHS}'+batchNormStr+transformStr+globalFeaturesStr
 BATCH_SIZE = opts.batchSize
 
 NUM_WORKERS = 8
@@ -55,15 +79,10 @@ if save_model:
     print("Trained model will be saved at", SAVEPATH)
 #################################################
 
-# load data into custom Dataset
-dataPath = opts.dataPath
-#dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_large/'
-#dataPath = '/lcrc/group/ATLAS/atlasfs/local/ekourlitis/ILDCaloSim/e-_Jun3/'
-#dataPath = '/data/ekourlitis/ILDCaloSim/e-_large/partial/'
 dataset_t = CellsDataset(dataPath, 
                          BATCH_SIZE,
-                         transform = None, # takes None, NormPerImg, NormGlob(scale) or LogScale
-                         global_features = ['edep'], # takes None, edep and/or sparcity
+                         transform = transform, # takes None, NormPerImg, NormGlob(scale) or LogScale
+                         global_features = opts.globalFeatures, # takes None, edep and/or sparsity
                          alt_key=opts.alt_key)
 
 # number of instances/examples
@@ -153,4 +172,4 @@ if save_model:
     torch.save(model.state_dict(), SAVEPATH+MODELNAME+'.pt')
 
 # plot some training metrics
-plot_training_metrics(trainer)
+# plot_training_metrics(trainer)
