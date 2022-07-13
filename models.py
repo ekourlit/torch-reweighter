@@ -323,20 +323,19 @@ class Conv3DModelGF(Conv3DModel):
                          outChannels, 
                          hidden_layers_in_out)
 
-        outSize, self.conv_layer1 = super().set_conv_block(inputShape, outChannels, stride)
-        self.fc_conv = nn.Linear(outSize+num_features, hidden_layers_in_out[0][0])
+        self.fc_out = nn.Linear(self.hidden_layers_in_out[-1][-1]+num_features, self.num_classes)
 
     def forward(self, image: torch.Tensor, features: torch.Tensor) -> torch.Tensor:
         out = self.conv_layer1(image)
         # out = self.conv_layer2(out)
         out = out.view(out.size(0), -1) # flatten
-        # concatenate conv output and global features
-        out = torch.cat((out, features), dim=1)
         out = self.fc_conv(out)
         out = self.relu(out)
         if self.use_dropout:
             out = self.drop(out)
         out = self.fcs(out)
+        # concatenate conv output and global features
+        out = torch.cat((out, features), dim=1)
         out = self.fc_out(out)
         
         return out
