@@ -42,6 +42,7 @@ def get_flat_array(result_tensor, idx):
 parser = argparse.ArgumentParser(usage="usage: %(prog)s [opts]")
 parser.add_argument('-m', '--model', action='store', type=str, dest='model', required=True, help='The model used for evaluation.')
 parser.add_argument('-n', '--batchNorm', action='store_true', default=False, help='Do batch normalization.')
+parser.add_argument('-t', '--transform', choices=['None', 'NormPerImg', 'NormGlob', 'LogScale'], default='None', help='Type of transform to perform on the input data (e.g., normalizaing everything to be in the range [0,1]).')
 parser.add_argument('--stride', type=int, default=3, help='Stride of filter')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
 parser.add_argument('-l', '--logVersion',  type=str, default='version_0', help='Version of the log to use for plotting') 
@@ -60,10 +61,21 @@ MODELNAME=model_path.split('/')[-1].rstrip('pt').rstrip('.')
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
+
+suffix = f'_stride{opts.stride}'+batchNormStr
+
+transform = None
 GLOBAL_FEATURES = []
 for i in MODELNAME.split('_'):
-    if 'G' in i: GLOBAL_FEATURES.append(i.lstrip('G'))
-suffix = f'_stride{opts.stride}'+batchNormStr
+    if '_G' in i: GLOBAL_FEATURES.append(i.lstrip('_G'))
+    if 'trans' in i:
+        transformStr = i.lstrip('trans')
+        if transformStr == 'NormGlob':
+            global_max = get_global_max(opts.dataPath, opts.alt_key)
+            transform = locals()[transformStr](global_max)
+        else:
+            transform = locals()[transformStr]()
+        suffix += '_'+i
 if len(GLOBAL_FEATURES) > 0:
     suffix += '_'+'_'.join(GLOBAL_FEATURES)
 
@@ -72,7 +84,7 @@ suffix+='_'+opts.alt_key
 
 # load test dataset
 dataset = get_HDF5_dataset(opts.dataPath+'showers-10kE10GeV-'+opts.alt_key+'-1.hdf5')
-dataset_t = get_tensor_dataset(dataset, GLOBAL_FEATURES)
+dataset_t = get_tensor_dataset(dataset, GLOBAL_FEATURES, transform=transform)
 
 #dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/test/showers-10kE10GeV-RC10-95.hdf5')
 #dataset_t = get_tensor_dataset(dataset, GLOBAL_FEATURES)
