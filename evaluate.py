@@ -45,6 +45,8 @@ parser.add_argument('-n', '--batchNorm', action='store_true', default=False, hel
 parser.add_argument('--stride', type=int, default=3, help='Stride of filter')
 parser.add_argument('-b', '--batchSize',  type=int, default=256, help='Batch size') #128 is better for atlasgpu
 parser.add_argument('-l', '--logVersion',  type=str, default='version_0', help='Version of the log to use for plotting') 
+parser.add_argument('-d', '--dataPath', type=str, default='/data/whopkins/ILDCaloSim/e-_Jun3/test/', help='Path to data files.')
+parser.add_argument('-a', '--alt_key', type=str, default='RC10', help='Key for alternative range cut, e.g., RC10.')
 
 opts = parser.parse_args()
 model_path = opts.model
@@ -58,18 +60,24 @@ MODELNAME=model_path.split('/')[-1].rstrip('pt').rstrip('.')
 batchNormStr = ''
 if opts.batchNorm:
     batchNormStr = '_batchNorm'
-suffix = f'_stride{opts.stride}'+batchNormStr
 GLOBAL_FEATURES = []
 for i in MODELNAME.split('_'):
     if 'G' in i: GLOBAL_FEATURES.append(i.lstrip('G'))
+suffix = f'_stride{opts.stride}'+batchNormStr
+if len(GLOBAL_FEATURES) > 0:
+    suffix += '_'+'_'.join(GLOBAL_FEATURES)
 
+suffix+='_'+opts.alt_key
 #################################################
 
 # load test dataset
-dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/test/showers-10kE10GeV-RC10-95.hdf5')
+dataset = get_HDF5_dataset(opts.dataPath+'showers-10kE10GeV-'+opts.alt_key+'-1.hdf5')
 dataset_t = get_tensor_dataset(dataset, GLOBAL_FEATURES)
+
+#dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/test/showers-10kE10GeV-RC10-95.hdf5')
+#dataset_t = get_tensor_dataset(dataset, GLOBAL_FEATURES)
 # load nominal dataset (just for plotting)
-nom_dataset = get_HDF5_dataset('/data/ekourlitis/ILDCaloSim/e-_large/all/showers-10kE10GeV-RC01-30.hdf5')
+nom_dataset = get_HDF5_dataset(opts.dataPath+'showers-10kE10GeV-RC01-1.hdf5')
 
 # get the labels
 labels = np.array(list(map(lambda x: x[1].numpy(), dataset_t))).reshape(-1)
